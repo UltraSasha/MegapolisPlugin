@@ -1,0 +1,40 @@
+# Режим хранения данных: json или mysql
+storage:
+  type: json
+  mysql:
+    enabled: false
+    host: localhost
+    port: 3306
+    database: megapolis
+    username: root
+    password: ""
+
+# Начальный баланс игроков
+start_balance: 15000000
+
+# Модели транспорта (CustomModelData для лошадей)
+vehicles:
+  car:
+    model_id: 1001
+    name: "Tesla Model S"
+    max_speed: 120
+    fuel_capacity: 80
+    health: 100
+  motorcycle:
+    model_id: 2001
+    name: "Harley Davidson"
+    max_speed: 90
+    fuel_capacity: 30
+    health: 80
+  boat:
+    model_id: 3001
+    name: "Скоростной катер"
+    max_speed: 60
+    fuel_capacity: 50
+    health: 120
+  helicopter:
+    model_id: 4001
+    name: "Robinson R44"
+    max_speed: 100
+    fuel_capacity: 60
+    health: 90
