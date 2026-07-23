@@ -1,0 +1,16 @@
+name: MegapolisCore
+version: 1.0
+author: Deezercraft2024
+main: com.megapolis.core.MegapolisPlugin
+api-version: 1.19
+depend: [Vault]
+softdepend: [WorldGuard, EssentialsX, SkinRestorer]
+commands:
+  pts:
+    description: Показать ПТС ближайшей машины
+    aliases: [ptsd]
+  trunk:
+    description: Открыть багажник машины
+  megapolis:
+    description: Основная команда плагина
+    aliases: [mp]
