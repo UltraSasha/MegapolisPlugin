@@ -20,12 +20,21 @@
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
         </repository>
-        <!-- Vault -->
+        <!-- JitPack (для Vault) -->
         <repository>
             <id>jitpack.io</id>
             <url>https://jitpack.io</url>
         </repository>
-        <!-- EssentialsX (для Vault) -->
+        <!-- Официальный репозиторий SkinRestorer -->
+        <repository>
+            <id>skinsrestorer</id>
+            <url>https://repo.skinsrestorer.net/repository/maven-public/</url>
+        </repository>
+        <!-- CodeMC (иногда нужен) -->
+        <repository>
+            <id>codemc</id>
+            <url>https://repo.codemc.io/repository/maven-public/</url>
+        </repository>
     </repositories>
 
     <dependencies>
@@ -55,6 +64,14 @@
             <artifactId>HikariCP</artifactId>
             <version>5.0.1</version>
             <optional>true</optional>
+        </dependency>
+        <!-- SkinRestorer API -->
+        <dependency>
+            <groupId>net.skinsrestorer</groupId>
+            <artifactId>api</artifactId>
+            <version>15.1.0</version>
+            <!-- provided, так как плагин SkinRestorer будет на сервере -->
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 

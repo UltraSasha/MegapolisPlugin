@@ -11,6 +11,16 @@ commands:
     aliases: [ptsd]
   trunk:
     description: Открыть багажник машины
+  engine:
+    description: Вкл/выкл двигатель машины
+    aliases: [start, stop]
+  tf:
+    description: Превратиться в машину-трансформер или обратно
+  tablet:
+    description: Открыть планшет
+    aliases: [pda, phone]
+  skin:
+    description: Применить скин по имени
   megapolis:
     description: Основная команда плагина
     aliases: [mp]

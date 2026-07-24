@@ -6,19 +6,16 @@ import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
-import java.util.UUID;
-
 public class EconomyManager {
 
     private final MegapolisPlugin plugin;
     private Economy vaultEconomy;
-
-    // Имя бота-сервера
     public static final String SERVER_BOT_NAME = "ServerBot";
 
     public EconomyManager(MegapolisPlugin plugin) {
         this.plugin = plugin;
         setupVault();
+        ensureServerBot();
     }
 
     private void setupVault() {
@@ -31,11 +28,9 @@ public class EconomyManager {
         }
     }
 
-    // Проверка, что ServerBot существует (создаём оффлайн-аккаунт)
     public void ensureServerBot() {
         OfflinePlayer bot = Bukkit.getOfflinePlayer(SERVER_BOT_NAME);
         if (!bot.hasPlayedBefore() && !bot.isOnline()) {
-            // Создаём аккаунт через вызов каких-то методов (можно просто пополнить баланс)
             vaultEconomy.depositPlayer(bot, 0);
         }
     }
@@ -55,7 +50,6 @@ public class EconomyManager {
         vaultEconomy.withdrawPlayer(player, amount);
     }
 
-    // Отправка денег боту
     public void payToServerBot(OfflinePlayer from, double amount) {
         OfflinePlayer bot = Bukkit.getOfflinePlayer(SERVER_BOT_NAME);
         withdraw(from, amount);

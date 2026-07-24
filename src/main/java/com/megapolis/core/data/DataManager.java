@@ -3,7 +3,6 @@ package com.megapolis.core.data;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.megapolis.core.MegapolisPlugin;
-import org.bukkit.configuration.file.FileConfiguration;
 
 import java.io.*;
 import java.nio.file.Files;
@@ -18,8 +17,6 @@ public class DataManager {
     private final Gson gson;
     private final boolean useMySQL;
     private final Path dataFolder;
-
-    // Кэши данных (в реальности здесь будут коллекции)
     private final Map<String, Object> cache = new HashMap<>();
 
     public DataManager(MegapolisPlugin plugin) {
@@ -35,14 +32,12 @@ public class DataManager {
                 plugin.getLogger().severe("Не удалось создать папку данных: " + e.getMessage());
             }
         } else {
-            // Инициализация MySQL (позже)
             plugin.getLogger().info("Режим MySQL включен (реализация будет добавлена)");
         }
     }
 
-    // Сохранение объекта в JSON-файл
     public <T> void save(String fileName, T data) {
-        if (useMySQL) return; // Заглушка
+        if (useMySQL) return;
         Path file = dataFolder.resolve(fileName + ".json");
         try (Writer writer = Files.newBufferedWriter(file)) {
             gson.toJson(data, writer);
@@ -51,9 +46,8 @@ public class DataManager {
         }
     }
 
-    // Загрузка объекта из JSON-файла
     public <T> T load(String fileName, Class<T> clazz) {
-        if (useMySQL) return null; // Заглушка
+        if (useMySQL) return null;
         Path file = dataFolder.resolve(fileName + ".json");
         if (!Files.exists(file)) return null;
         try (Reader reader = Files.newBufferedReader(file)) {
@@ -65,12 +59,9 @@ public class DataManager {
     }
 
     public void saveAll() {
-        // Сохраняем все кэшированные данные
         for (Map.Entry<String, Object> entry : cache.entrySet()) {
             save(entry.getKey(), entry.getValue());
         }
         plugin.getLogger().info("Все данные сохранены.");
     }
-
-    // Методы для получения/установки конкретных данных (будут расширяться)
 }

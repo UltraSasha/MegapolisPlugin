@@ -1,4 +1,3 @@
-# Режим хранения данных: json или mysql
 storage:
   type: json
   mysql:
@@ -9,10 +8,8 @@ storage:
     username: root
     password: ""
 
-# Начальный баланс игроков
 start_balance: 15000000
 
-# Модели транспорта (CustomModelData для лошадей)
 vehicles:
   car:
     model_id: 1001
@@ -20,21 +17,100 @@ vehicles:
     max_speed: 120
     fuel_capacity: 80
     health: 100
+    price: 500000
   motorcycle:
     model_id: 2001
     name: "Harley Davidson"
     max_speed: 90
     fuel_capacity: 30
     health: 80
+    price: 250000
   boat:
     model_id: 3001
     name: "Скоростной катер"
     max_speed: 60
     fuel_capacity: 50
     health: 120
+    price: 400000
   helicopter:
     model_id: 4001
     name: "Robinson R44"
     max_speed: 100
     fuel_capacity: 60
     health: 90
+    price: 1000000
+
+tuning:
+  engine:
+    levels: 3
+    price_per_level: 100000
+  brakes:
+    levels: 3
+    price_per_level: 80000
+  hydraulics:
+    levels: 2
+    price_per_level: 150000
+  nitro:
+    levels: 3
+    price_per_level: 200000
+    speeds: [125, 160, 195]
+  colors:
+    - "RED"
+    - "BLUE"
+    - "GREEN"
+    - "YELLOW"
+    - "BLACK"
+    - "WHITE"
+
+cases:
+  transformers:
+    display_name: "Кейс Трансформеры"
+    price: 50000000
+    rewards:
+      - type: "experience"
+        amount: 100
+        rarity: "Обычный"
+        chance: 50.0
+        material: ""
+        custom_model_data: 0
+      - type: "money"
+        amount: 100000
+        rarity: "Необычный"
+        chance: 40.0
+        material: ""
+        custom_model_data: 0
+      - type: "money"
+        amount: 150000
+        rarity: "Необычный"
+        chance: 40.0
+        material: ""
+        custom_model_data: 0
+      - type: "money"
+        amount: 250000
+        rarity: "Редкий"
+        chance: 30.0
+        material: ""
+        custom_model_data: 0
+      - type: "money"
+        amount: 500000
+        rarity: "Очень редкий"
+        chance: 15.0
+        material: ""
+        custom_model_data: 0
+      - type: "money"
+        amount: 1000000
+        rarity: "Очень редкий"
+        chance: 15.0
+        material: ""
+        custom_model_data: 0
+      - type: "transformer"
+        amount: 1
+        rarity: "Легендарный"
+        chance: 5.0
+        material: "TRANSFORMER_SKIN_1"
+        custom_model_data: 5001
+
+exchange_rates:
+  RUB: 0.01
+  EUR: 1.2
+  BTC: 10000.0
