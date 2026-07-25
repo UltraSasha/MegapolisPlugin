@@ -34,7 +34,7 @@ public class VehicleManager implements Listener {
     private final MegapolisPlugin plugin;
     private final DataManager dataManager;
     private final Map<UUID, Vehicle> vehicles = new HashMap<>();
-    private final Map<UUID, UUID> playerToVehicle = new HashMap<>();
+    private final Map<UUID, UUID> playerToVehicle = new HashMap<>(); // playerId → vehicleId
     private final Map<UUID, Inventory> trunkInventories = new HashMap<>();
     private final Map<String, VehicleModelData> availableModels = new HashMap<>();
     private final Map<UUID, String> selectedVehicleForTuning = new HashMap<>();
@@ -47,6 +47,9 @@ public class VehicleManager implements Listener {
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
+    // ============================================================
+    // ЗАГРУЗКА МОДЕЛЕЙ ИЗ КОНФИГА
+    // ============================================================
     private void loadAvailableModels() {
         ConfigurationSection vehiclesSection = plugin.getConfig().getConfigurationSection("vehicles");
         if (vehiclesSection == null) {
@@ -55,6 +58,7 @@ public class VehicleManager implements Listener {
         }
         for (String key : vehiclesSection.getKeys(false)) {
             ConfigurationSection modelSection = vehiclesSection.getConfigurationSection(key);
+            if (modelSection == null) continue;
             String name = modelSection.getString("name", key);
             int modelId = modelSection.getInt("model_id", 0);
             int maxSpeed = modelSection.getInt("max_speed", 100);
@@ -67,6 +71,9 @@ public class VehicleManager implements Listener {
         plugin.getLogger().info("Загружено " + availableModels.size() + " моделей транспорта.");
     }
 
+    // ============================================================
+    // АВТОРЫНОК (из планшета)
+    // ============================================================
     public void openAutoMarket(Player player) {
         Inventory inv = Bukkit.createInventory(null, 54, "§bАвторынок");
         int slot = 0;
@@ -112,7 +119,13 @@ public class VehicleManager implements Listener {
             return;
         }
         Location spawnLoc = player.getLocation().add(0, 0, 3);
-        VehicleType type = VehicleType.valueOf(selectedKey.toUpperCase());
+        // Определяем тип по ключу (CAR, MOTORCYCLE, BOAT, HELICOPTER)
+        VehicleType type;
+        try {
+            type = VehicleType.valueOf(selectedKey.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            type = VehicleType.CAR;
+        }
         Vehicle vehicle = spawnVehicle(player, type, spawnLoc);
         if (vehicle == null) {
             player.sendMessage("§cНе удалось создать машину.");
@@ -126,6 +139,9 @@ public class VehicleManager implements Listener {
         player.closeInventory();
     }
 
+    // ============================================================
+    // СПАВН МАШИНЫ
+    // ============================================================
     public Vehicle spawnVehicle(Player owner, VehicleType type, Location location) {
         World world = location.getWorld();
         if (world == null) return null;
@@ -150,8 +166,9 @@ public class VehicleManager implements Listener {
 
         UUID vehicleId = UUID.fromString(vehicleIdStr);
         Vehicle vehicle = new Vehicle(vehicleId, owner.getUniqueId(), type, location, 100, 100);
+        // Сохраняем в карты
         vehicles.put(vehicleId, vehicle);
-        playerToVehicle.put(owner.getUniqueId(), vehicleId);
+        // Не добавляем в playerToVehicle, так как игрок ещё не сел
 
         Inventory trunk = Bukkit.createInventory(null, 27, "Багажник " + type.getDisplayName());
         trunkInventories.put(vehicleId, trunk);
@@ -160,6 +177,38 @@ public class VehicleManager implements Listener {
         return vehicle;
     }
 
+    // ============================================================
+    // РЕГИСТРАЦИЯ/УДАЛЕНИЕ МАШИН (для трансформеров)
+    // ============================================================
+    public void registerVehicle(Vehicle vehicle, Horse horse) {
+        vehicles.put(vehicle.getVehicleId(), vehicle);
+        // Добавляем в trunkInventories (пустой)
+        Inventory trunk = Bukkit.createInventory(null, 27, "Багажник " + vehicle.getType().getDisplayName());
+        trunkInventories.put(vehicle.getVehicleId(), trunk);
+        // Сохраняем в данные
+        dataManager.save("vehicles/" + vehicle.getVehicleId(), vehicle);
+        // Устанавливаем PDC у лошади
+        NamespacedKey key = new NamespacedKey(plugin, "vehicle_id");
+        horse.getPersistentDataContainer().set(key, PersistentDataType.STRING, vehicle.getVehicleId().toString());
+    }
+
+    public void unregisterVehicle(UUID vehicleId) {
+        vehicles.remove(vehicleId);
+        trunkInventories.remove(vehicleId);
+        // Удаляем из playerToVehicle, если там есть
+        for (Map.Entry<UUID, UUID> entry : playerToVehicle.entrySet()) {
+            if (entry.getValue().equals(vehicleId)) {
+                playerToVehicle.remove(entry.getKey());
+                break;
+            }
+        }
+        // Удаляем файл
+        // dataManager.delete("vehicles/" + vehicleId);
+    }
+
+    // ============================================================
+    // ПОСАДКА/ВЫХОД
+    // ============================================================
     public boolean boardVehicle(Player player, Horse horse) {
         NamespacedKey key = new NamespacedKey(plugin, "vehicle_id");
         String vehicleIdStr = horse.getPersistentDataContainer().get(key, PersistentDataType.STRING);
@@ -221,6 +270,9 @@ public class VehicleManager implements Listener {
         return entity == null ? null : vehicles.get(entity.getUniqueId());
     }
 
+    // ============================================================
+    // УПРАВЛЕНИЕ ДВИЖЕНИЕМ
+    // ============================================================
     public void handleMovement(Player player, boolean forward, boolean backward, boolean nitro) {
         Vehicle vehicle = getPlayerVehicle(player);
         if (vehicle == null) return;
@@ -273,6 +325,9 @@ public class VehicleManager implements Listener {
         }
     }
 
+    // ============================================================
+    // УРОН И ВЗРЫВ
+    // ============================================================
     public void damageVehicle(Vehicle vehicle, int damage, Player damager) {
         if (vehicle == null) return;
         int newHealth = vehicle.getHealth() - damage;
@@ -328,6 +383,9 @@ public class VehicleManager implements Listener {
         world.spawnParticle(Particle.FLAME, loc, 10, 1, 1, 1, 0.1);
     }
 
+    // ============================================================
+    // БАГАЖНИК
+    // ============================================================
     public void openTrunk(Player player) {
         Vehicle vehicle = getPlayerVehicle(player);
         if (vehicle == null) {
@@ -368,6 +426,9 @@ public class VehicleManager implements Listener {
         }
     }
 
+    // ============================================================
+    // ПТС
+    // ============================================================
     public void showPTS(Player player) {
         Vehicle vehicle = getNearestVehicle(player);
         if (vehicle == null) {
@@ -393,8 +454,11 @@ public class VehicleManager implements Listener {
         player.sendMessage("§6Двигатель " + (newState ? "§aзаведён" : "§cзаглушён"));
     }
 
-    // === GUI ЛОКАЦИЙ ===
+    // ============================================================
+    // GUI ЛОКАЦИЙ
+    // ============================================================
 
+    // ---------- СТОЯНКА ----------
     public void openParkingGUI(Player player, LocationData locationData) {
         Inventory inv = Bukkit.createInventory(null, 54, "§6Стоянка: " + locationData.getDisplayName());
         int slot = 0;
@@ -460,6 +524,7 @@ public class VehicleManager implements Listener {
         }
     }
 
+    // ---------- ТЮНИНГ ----------
     public void openTuningGUI(Player player, LocationData locationData) {
         Inventory inv = Bukkit.createInventory(null, 27, "§6Тюнинг: " + locationData.getDisplayName());
         inv.setItem(0, createButton(Material.FURNACE, "§6Двигатель", "Уровень: 0/3, цена: 100000"));
@@ -585,6 +650,7 @@ public class VehicleManager implements Listener {
         openTuningGUI(player, null);
     }
 
+    // ---------- ПОЛИЦИЯ ----------
     public void openPoliceGUI(Player player, LocationData locationData) {
         Inventory inv = Bukkit.createInventory(null, 27, "§cПолиция: " + locationData.getDisplayName());
         inv.setItem(0, createButton(Material.BOOK, "§6Штрафы", "Список ваших штрафов"));
@@ -608,6 +674,7 @@ public class VehicleManager implements Listener {
         }
     }
 
+    // ---------- ПОСТОМАТ ----------
     public void openPostomatGUI(Player player, LocationData locationData) {
         Inventory inv = Bukkit.createInventory(null, 27, "§6Постомат: " + locationData.getDisplayName());
         inv.setItem(0, createButton(Material.CHEST, "§6Отправить посылку", "Выберите предмет"));
@@ -627,10 +694,14 @@ public class VehicleManager implements Listener {
         if (slot == 1) player.sendMessage("§eУ вас нет посылок.");
     }
 
+    // ---------- БИЗНЕС ----------
     public void openBusinessGUI(Player player, LocationData locationData) {
         plugin.getModuleManager().getBusinessManager().openBusinessLocationGUI(player, locationData);
     }
 
+    // ============================================================
+    // ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ
+    // ============================================================
     private ItemStack createButton(Material mat, String name, String lore) {
         ItemStack item = new ItemStack(mat);
         ItemMeta meta = item.getItemMeta();
@@ -640,7 +711,11 @@ public class VehicleManager implements Listener {
         return item;
     }
 
+    // ============================================================
+    // ЗАГРУЗКА/СОХРАНЕНИЕ
+    // ============================================================
     private void loadVehicles() {
+        // Заглушка — позже реализовать загрузку из папки data/vehicles/
         plugin.getLogger().info("Загрузка машин (заглушка)");
     }
 
@@ -657,6 +732,9 @@ public class VehicleManager implements Listener {
         }
     }
 
+    // ============================================================
+    // ВНУТРЕННИЙ КЛАСС
+    // ============================================================
     private static class VehicleModelData {
         private final String typeKey;
         private final String name;
@@ -684,4 +762,4 @@ public class VehicleManager implements Listener {
         public int getHealth() { return health; }
         public double getPrice() { return price; }
     }
-            }
+}
