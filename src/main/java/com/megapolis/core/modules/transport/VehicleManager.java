@@ -2,20 +2,19 @@ package com.megapolis.core.modules.transport;
 
 import com.megapolis.core.MegapolisPlugin;
 import com.megapolis.core.data.DataManager;
+import com.megapolis.core.modules.locations.LocationManager.LocationData;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.Particle;
 import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Horse;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -37,8 +36,8 @@ public class VehicleManager implements Listener {
     private final Map<UUID, Vehicle> vehicles = new HashMap<>();
     private final Map<UUID, UUID> playerToVehicle = new HashMap<>();
     private final Map<UUID, Inventory> trunkInventories = new HashMap<>();
-    // Кэш доступных моделей из конфига (название → данные)
     private final Map<String, VehicleModelData> availableModels = new HashMap<>();
+    private final Map<UUID, String> selectedVehicleForTuning = new HashMap<>();
 
     public VehicleManager(MegapolisPlugin plugin) {
         this.plugin = plugin;
@@ -48,40 +47,31 @@ public class VehicleManager implements Listener {
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
-    // === Загрузка данных о доступных моделях из config.yml ===
     private void loadAvailableModels() {
-        FileConfiguration config = plugin.getConfig();
-        ConfigurationSection vehiclesSection = config.getConfigurationSection("vehicles");
+        ConfigurationSection vehiclesSection = plugin.getConfig().getConfigurationSection("vehicles");
         if (vehiclesSection == null) {
             plugin.getLogger().warning("Секция vehicles в config.yml не найдена!");
             return;
         }
-
         for (String key : vehiclesSection.getKeys(false)) {
             ConfigurationSection modelSection = vehiclesSection.getConfigurationSection(key);
-            if (modelSection == null) continue;
-
             String name = modelSection.getString("name", key);
             int modelId = modelSection.getInt("model_id", 0);
             int maxSpeed = modelSection.getInt("max_speed", 100);
             int fuelCapacity = modelSection.getInt("fuel_capacity", 50);
             int health = modelSection.getInt("health", 100);
-            // Цена задаётся в конфиге, если нет — рассчитываем по характеристикам
             double price = modelSection.getDouble("price", maxSpeed * fuelCapacity / 10.0);
-
             VehicleModelData data = new VehicleModelData(key, name, modelId, maxSpeed, fuelCapacity, health, price);
             availableModels.put(key, data);
         }
-        plugin.getLogger().info("Загружено " + availableModels.size() + " моделей транспорта для авторынка.");
+        plugin.getLogger().info("Загружено " + availableModels.size() + " моделей транспорта.");
     }
 
-    // === Авторынок (открывается из планшета) ===
     public void openAutoMarket(Player player) {
         Inventory inv = Bukkit.createInventory(null, 54, "§bАвторынок");
-
         int slot = 0;
         for (VehicleModelData model : availableModels.values()) {
-            if (slot >= 53) break; // максимум 54 слота (0-53)
+            if (slot >= 53) break;
             ItemStack item = new ItemStack(Material.LEATHER_HORSE_ARMOR);
             ItemMeta meta = item.getItemMeta();
             meta.setCustomModelData(model.getModelId());
@@ -95,19 +85,9 @@ public class VehicleManager implements Listener {
             meta.setLore(lore);
             item.setItemMeta(meta);
             inv.setItem(slot, item);
-
-            // Сохраняем идентификатор модели в NBT (через ItemMeta нельзя, используем отдельную карту или lore)
-            // Для простоты будем определять модель по имени в обработчике
             slot++;
         }
-
-        // Закрывающая кнопка
-        ItemStack closeItem = new ItemStack(Material.BARRIER);
-        ItemMeta closeMeta = closeItem.getItemMeta();
-        closeMeta.setDisplayName("§cЗакрыть");
-        closeItem.setItemMeta(closeMeta);
-        inv.setItem(53, closeItem);
-
+        inv.setItem(53, createButton(Material.BARRIER, "§cЗакрыть", ""));
         player.openInventory(inv);
     }
 
@@ -116,52 +96,37 @@ public class VehicleManager implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         if (!event.getView().getTitle().equals("§bАвторынок")) return;
         event.setCancelled(true);
-
         int slot = event.getRawSlot();
-        if (slot == 53) {
-            player.closeInventory();
-            return;
-        }
+        if (slot == 53) { player.closeInventory(); return; }
         if (slot < 0 || slot >= availableModels.size()) return;
 
-        // Определяем, на какую модель нажали (по порядку в availableModels)
-        String[] modelKeys = availableModels.keySet().toArray(new String[0]);
-        String selectedKey = modelKeys[slot];
+        String[] keys = availableModels.keySet().toArray(new String[0]);
+        String selectedKey = keys[slot];
         VehicleModelData model = availableModels.get(selectedKey);
         if (model == null) return;
 
-        // Проверка баланса (Vault)
         double balance = plugin.getEconomyManager().getBalance(player);
         if (balance < model.getPrice()) {
             player.sendMessage("§cНедостаточно денег! Нужно: " + String.format("%,.0f", model.getPrice()) + " монет.");
             player.closeInventory();
             return;
         }
-
-        // Создаём машину
-        Location spawnLoc = player.getLocation().add(0, 0, 3); // немного впереди
-        Vehicle vehicle = spawnVehicle(player, model, spawnLoc);
+        Location spawnLoc = player.getLocation().add(0, 0, 3);
+        VehicleType type = VehicleType.valueOf(selectedKey.toUpperCase());
+        Vehicle vehicle = spawnVehicle(player, type, spawnLoc);
         if (vehicle == null) {
             player.sendMessage("§cНе удалось создать машину.");
             player.closeInventory();
             return;
         }
-
-        // Списываем деньги (можно перевести ServerBot)
         plugin.getEconomyManager().withdraw(player, model.getPrice());
         plugin.getEconomyManager().payToServerBot(player, model.getPrice());
-
-        // Выдаём ПТС (в чат)
         player.sendMessage("§aВы купили машину " + model.getName() + " за " + String.format("%,.0f", model.getPrice()) + " монет.");
-        player.sendMessage("§6ПТС: §7Модель: " + model.getName() +
-                           ", Владелец: " + player.getName() +
-                           ", ID: " + vehicle.getVehicleId());
-
+        player.sendMessage("§6ПТС: §7Модель: " + model.getName() + ", Владелец: " + player.getName());
         player.closeInventory();
     }
 
-    // === Вспомогательный метод для спавна машины по модели из авторынка ===
-    private Vehicle spawnVehicle(Player owner, VehicleModelData model, Location location) {
+    public Vehicle spawnVehicle(Player owner, VehicleType type, Location location) {
         World world = location.getWorld();
         if (world == null) return null;
 
@@ -170,12 +135,12 @@ public class VehicleManager implements Listener {
         horse.setTamed(true);
         horse.setOwner(owner);
         horse.setDomestication(1);
-        horse.setCustomName(model.getName());
+        horse.setCustomName(type.getDisplayName());
         horse.setCustomNameVisible(true);
 
         ItemStack armor = new ItemStack(Material.LEATHER_HORSE_ARMOR);
         ItemMeta meta = armor.getItemMeta();
-        meta.setCustomModelData(model.getModelId());
+        meta.setCustomModelData(type.getModelId());
         armor.setItemMeta(meta);
         horse.getInventory().setArmor(armor);
 
@@ -184,27 +149,17 @@ public class VehicleManager implements Listener {
         horse.getPersistentDataContainer().set(key, PersistentDataType.STRING, vehicleIdStr);
 
         UUID vehicleId = UUID.fromString(vehicleIdStr);
-        VehicleType type = VehicleType.valueOf(model.getTypeKey().toUpperCase()); // нужно, чтобы тип совпадал с enum
-        // Если тип не совпадает, используем CAR по умолчанию
-        VehicleType realType;
-        try {
-            realType = VehicleType.valueOf(model.getTypeKey().toUpperCase());
-        } catch (IllegalArgumentException e) {
-            realType = VehicleType.CAR;
-        }
-
-        Vehicle vehicle = new Vehicle(vehicleId, owner.getUniqueId(), realType, location, model.getHealth(), 100);
+        Vehicle vehicle = new Vehicle(vehicleId, owner.getUniqueId(), type, location, 100, 100);
         vehicles.put(vehicleId, vehicle);
         playerToVehicle.put(owner.getUniqueId(), vehicleId);
 
-        Inventory trunk = Bukkit.createInventory(null, 27, "Багажник " + model.getName());
+        Inventory trunk = Bukkit.createInventory(null, 27, "Багажник " + type.getDisplayName());
         trunkInventories.put(vehicleId, trunk);
 
         dataManager.save("vehicles/" + vehicleId, vehicle);
         return vehicle;
     }
 
-    // === Остальные методы (без изменений, но я приведу их для полноты) ===
     public boolean boardVehicle(Player player, Horse horse) {
         NamespacedKey key = new NamespacedKey(plugin, "vehicle_id");
         String vehicleIdStr = horse.getPersistentDataContainer().get(key, PersistentDataType.STRING);
@@ -221,13 +176,11 @@ public class VehicleManager implements Listener {
             player.sendMessage("§cВы уже сидите в машине.");
             return false;
         }
-
         Vehicle vehicle = vehicles.get(vehicleId);
         if (!vehicle.getOwner().equals(player.getUniqueId())) {
             player.sendMessage("§cВы не владелец этой машины.");
             return false;
         }
-
         horse.addPassenger(player);
         playerToVehicle.put(player.getUniqueId(), vehicleId);
         player.sendMessage("§aВы сели в машину. §eF — двигатель, §aПробел — нитро, W/S — газ/тормоз, Shift — выход.");
@@ -265,8 +218,7 @@ public class VehicleManager implements Listener {
     }
 
     public Vehicle getVehicleByEntity(Entity entity) {
-        if (entity == null) return null;
-        return vehicles.get(entity.getUniqueId());
+        return entity == null ? null : vehicles.get(entity.getUniqueId());
     }
 
     public void handleMovement(Player player, boolean forward, boolean backward, boolean nitro) {
@@ -279,19 +231,16 @@ public class VehicleManager implements Listener {
             horse.setVelocity(horse.getVelocity().multiply(0));
             return;
         }
-
         double speed = 0.3;
         if (nitro && vehicle.getNitroLevel() > 0) {
             speed *= 1.0 + (vehicle.getNitroLevel() * 0.35);
         }
-
         Location eyeLoc = player.getEyeLocation();
         float yaw = eyeLoc.getYaw();
         float currentYaw = horse.getLocation().getYaw();
         float diff = yaw - currentYaw;
         while (diff > 180) diff -= 360;
         while (diff < -180) diff += 360;
-
         double driftFactor = 0.0;
         if (Math.abs(diff) > 30 && speed > 0.2) {
             driftFactor = Math.min(0.4, Math.abs(diff) / 360.0 * 0.8);
@@ -299,7 +248,6 @@ public class VehicleManager implements Listener {
                 horse.getLocation().getDirection().multiply(-driftFactor * 0.1)
             ));
         }
-
         if (forward) {
             horse.setVelocity(horse.getLocation().getDirection().multiply(speed));
         } else if (backward) {
@@ -307,13 +255,11 @@ public class VehicleManager implements Listener {
         } else {
             horse.setVelocity(horse.getVelocity().multiply(0.9));
         }
-
         if (Math.abs(diff) > 5) {
             float newYaw = currentYaw + diff * 0.1f;
             horse.teleport(new Location(horse.getWorld(), horse.getLocation().getX(),
                 horse.getLocation().getY(), horse.getLocation().getZ(), newYaw, horse.getLocation().getPitch()));
         }
-
         if (forward || backward) {
             int fuel = vehicle.getFuel();
             int consumption = nitro ? 3 : 1;
@@ -332,7 +278,6 @@ public class VehicleManager implements Listener {
         int newHealth = vehicle.getHealth() - damage;
         if (newHealth < 0) newHealth = 0;
         vehicle.setHealth(newHealth);
-
         if (newHealth == 0) {
             explodeVehicle(vehicle);
         } else {
@@ -357,16 +302,13 @@ public class VehicleManager implements Listener {
         Location loc = entity.getLocation();
         World world = loc.getWorld();
         if (world == null) return;
-
         world.createExplosion(loc, 4.0f, true, true);
-
         for (Entity passenger : entity.getPassengers()) {
             if (passenger instanceof Player player) {
                 player.damage(20.0);
                 player.sendMessage("§cВаша машина взорвалась! Вы получили сильные повреждения.");
             }
         }
-
         entity.remove();
         vehicles.remove(vehicle.getVehicleId());
         for (UUID playerId : playerToVehicle.keySet()) {
@@ -451,9 +393,255 @@ public class VehicleManager implements Listener {
         player.sendMessage("§6Двигатель " + (newState ? "§aзаведён" : "§cзаглушён"));
     }
 
+    // === GUI ЛОКАЦИЙ ===
+
+    public void openParkingGUI(Player player, LocationData locationData) {
+        Inventory inv = Bukkit.createInventory(null, 54, "§6Стоянка: " + locationData.getDisplayName());
+        int slot = 0;
+        for (Vehicle v : vehicles.values()) {
+            if (v.getOwner().equals(player.getUniqueId())) {
+                ItemStack item = new ItemStack(Material.LEATHER_HORSE_ARMOR);
+                ItemMeta meta = item.getItemMeta();
+                meta.setCustomModelData(v.getType().getModelId());
+                meta.setDisplayName("§6" + v.getType().getDisplayName());
+                List<String> lore = new ArrayList<>();
+                lore.add("§7ID: " + v.getVehicleId().toString().substring(0, 8));
+                lore.add("§7Здоровье: " + v.getHealth() + "%");
+                lore.add("§7Топливо: " + v.getFuel() + "%");
+                lore.add("§eЛКМ — сесть, ПКМ — вызвать сюда");
+                meta.setLore(lore);
+                item.setItemMeta(meta);
+                inv.setItem(slot, item);
+                slot++;
+            }
+        }
+        inv.setItem(53, createButton(Material.BARRIER, "§cЗакрыть", ""));
+        player.openInventory(inv);
+    }
+
+    @EventHandler
+    public void onParkingClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (!event.getView().getTitle().startsWith("§6Стоянка:")) return;
+        event.setCancelled(true);
+        int slot = event.getRawSlot();
+        if (slot == 53) { player.closeInventory(); return; }
+        if (slot < 0 || slot >= 53) return;
+
+        int index = 0;
+        Vehicle target = null;
+        for (Vehicle v : vehicles.values()) {
+            if (v.getOwner().equals(player.getUniqueId())) {
+                if (index == slot) {
+                    target = v;
+                    break;
+                }
+                index++;
+            }
+        }
+        if (target == null) return;
+
+        Entity entity = Bukkit.getEntity(target.getVehicleId());
+        if (event.isLeftClick()) {
+            if (entity instanceof Horse horse) {
+                if (entity.getLocation().distance(player.getLocation()) < 10) {
+                    boardVehicle(player, horse);
+                    player.closeInventory();
+                } else {
+                    player.sendMessage("§cМашина слишком далеко. Подойдите ближе.");
+                }
+            }
+        } else if (event.isRightClick()) {
+            if (entity != null) {
+                entity.teleport(player.getLocation());
+                player.sendMessage("§aМашина вызвана к вам!");
+                player.closeInventory();
+            }
+        }
+    }
+
+    public void openTuningGUI(Player player, LocationData locationData) {
+        Inventory inv = Bukkit.createInventory(null, 27, "§6Тюнинг: " + locationData.getDisplayName());
+        inv.setItem(0, createButton(Material.FURNACE, "§6Двигатель", "Уровень: 0/3, цена: 100000"));
+        inv.setItem(1, createButton(Material.IRON_BARS, "§6Тормоза", "Уровень: 0/3, цена: 80000"));
+        inv.setItem(2, createButton(Material.PISTON, "§6Гидравлика", "Уровень: 0/2, цена: 150000"));
+        inv.setItem(3, createButton(Material.BLAZE_POWDER, "§6Нитро", "Уровень: 0/3, цена: 200000"));
+        inv.setItem(4, createButton(Material.WHITE_DYE, "§6Окрас", "Выберите цвет"));
+        inv.setItem(26, createButton(Material.BARRIER, "§cЗакрыть", ""));
+        player.openInventory(inv);
+    }
+
+    @EventHandler
+    public void onTuningClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (!event.getView().getTitle().startsWith("§6Тюнинг:")) return;
+        event.setCancelled(true);
+        int slot = event.getRawSlot();
+        if (slot == 26) { player.closeInventory(); return; }
+        if (slot < 0 || slot > 4) return;
+
+        Vehicle vehicle = getPlayerVehicle(player);
+        if (vehicle == null) {
+            player.sendMessage("§cВы не в машине!");
+            player.closeInventory();
+            return;
+        }
+
+        ConfigurationSection tuningSection = plugin.getConfig().getConfigurationSection("tuning");
+        if (tuningSection == null) return;
+
+        switch (slot) {
+            case 0 -> {
+                int level = vehicle.getEngineLevel();
+                if (level >= 3) { player.sendMessage("§cМаксимальный уровень!"); return; }
+                int price = tuningSection.getInt("engine.price_per_level", 100000);
+                if (plugin.getEconomyManager().getBalance(player) < price) { player.sendMessage("§cНедостаточно денег!"); return; }
+                plugin.getEconomyManager().withdraw(player, price);
+                vehicle.setEngineLevel(level + 1);
+                player.sendMessage("§aДвигатель улучшен до уровня " + (level + 1));
+            }
+            case 1 -> {
+                int level = vehicle.getBrakesLevel();
+                if (level >= 3) { player.sendMessage("§cМаксимальный уровень!"); return; }
+                int price = tuningSection.getInt("brakes.price_per_level", 80000);
+                if (plugin.getEconomyManager().getBalance(player) < price) { player.sendMessage("§cНедостаточно денег!"); return; }
+                plugin.getEconomyManager().withdraw(player, price);
+                vehicle.setBrakesLevel(level + 1);
+                player.sendMessage("§aТормоза улучшены до уровня " + (level + 1));
+            }
+            case 2 -> {
+                int level = vehicle.getHydraulicsLevel();
+                if (level >= 2) { player.sendMessage("§cМаксимальный уровень!"); return; }
+                int price = tuningSection.getInt("hydraulics.price_per_level", 150000);
+                if (plugin.getEconomyManager().getBalance(player) < price) { player.sendMessage("§cНедостаточно денег!"); return; }
+                plugin.getEconomyManager().withdraw(player, price);
+                vehicle.setHydraulicsLevel(level + 1);
+                player.sendMessage("§aГидравлика улучшена до уровня " + (level + 1));
+            }
+            case 3 -> {
+                int level = vehicle.getNitroLevel();
+                if (level >= 3) { player.sendMessage("§cМаксимальный уровень!"); return; }
+                int price = tuningSection.getInt("nitro.price_per_level", 200000);
+                if (plugin.getEconomyManager().getBalance(player) < price) { player.sendMessage("§cНедостаточно денег!"); return; }
+                plugin.getEconomyManager().withdraw(player, price);
+                vehicle.setNitroLevel(level + 1);
+                player.sendMessage("§aНитро улучшена до уровня " + (level + 1));
+            }
+            case 4 -> openColorSelectionGUI(player, vehicle);
+        }
+        player.closeInventory();
+        openTuningGUI(player, null);
+    }
+
+    private void openColorSelectionGUI(Player player, Vehicle vehicle) {
+        Inventory inv = Bukkit.createInventory(null, 27, "§6Выбор окраса");
+        String[] colors = {"RED", "BLUE", "GREEN", "YELLOW", "BLACK", "WHITE", "ORANGE", "PURPLE"};
+        for (int i = 0; i < colors.length && i < 26; i++) {
+            ItemStack item = new ItemStack(Material.valueOf(colors[i] + "_LEATHER_HORSE_ARMOR"));
+            ItemMeta meta = item.getItemMeta();
+            meta.setDisplayName("§6" + colors[i]);
+            item.setItemMeta(meta);
+            inv.setItem(i, item);
+        }
+        inv.setItem(26, createButton(Material.BARRIER, "§cНазад", ""));
+        player.openInventory(inv);
+        selectedVehicleForTuning.put(player.getUniqueId(), vehicle.getVehicleId().toString());
+    }
+
+    @EventHandler
+    public void onColorClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (!event.getView().getTitle().equals("§6Выбор окраса")) return;
+        event.setCancelled(true);
+        int slot = event.getRawSlot();
+        if (slot == 26) {
+            player.closeInventory();
+            openTuningGUI(player, null);
+            return;
+        }
+        String vehicleIdStr = selectedVehicleForTuning.get(player.getUniqueId());
+        if (vehicleIdStr == null) return;
+        UUID vehicleId = UUID.fromString(vehicleIdStr);
+        Vehicle vehicle = vehicles.get(vehicleId);
+        if (vehicle == null) return;
+
+        Entity entity = Bukkit.getEntity(vehicleId);
+        if (entity instanceof Horse horse) {
+            String[] colors = {"RED", "BLUE", "GREEN", "YELLOW", "BLACK", "WHITE", "ORANGE", "PURPLE"};
+            if (slot < colors.length) {
+                Material armorMat = Material.valueOf(colors[slot] + "_LEATHER_HORSE_ARMOR");
+                ItemStack newArmor = new ItemStack(armorMat);
+                ItemStack oldArmor = horse.getInventory().getArmor();
+                if (oldArmor != null && oldArmor.hasItemMeta() && oldArmor.getItemMeta().hasCustomModelData()) {
+                    ItemMeta meta = newArmor.getItemMeta();
+                    meta.setCustomModelData(oldArmor.getItemMeta().getCustomModelData());
+                    newArmor.setItemMeta(meta);
+                }
+                horse.getInventory().setArmor(newArmor);
+                player.sendMessage("§aЦвет изменён на " + colors[slot]);
+            }
+        }
+        player.closeInventory();
+        openTuningGUI(player, null);
+    }
+
+    public void openPoliceGUI(Player player, LocationData locationData) {
+        Inventory inv = Bukkit.createInventory(null, 27, "§cПолиция: " + locationData.getDisplayName());
+        inv.setItem(0, createButton(Material.BOOK, "§6Штрафы", "Список ваших штрафов"));
+        inv.setItem(1, createButton(Material.PAPER, "§6Лицензии", "Купить лицензию"));
+        inv.setItem(2, createButton(Material.GOLD_INGOT, "§6Оплатить штраф", "Оплатить все штрафы"));
+        inv.setItem(26, createButton(Material.BARRIER, "§cЗакрыть", ""));
+        player.openInventory(inv);
+    }
+
+    @EventHandler
+    public void onPoliceClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (!event.getView().getTitle().startsWith("§cПолиция:")) return;
+        event.setCancelled(true);
+        int slot = event.getRawSlot();
+        if (slot == 26) { player.closeInventory(); return; }
+        switch (slot) {
+            case 0 -> player.sendMessage("§eУ вас нет штрафов.");
+            case 1 -> player.sendMessage("§eЛицензии можно купить за 50,000 монет.");
+            case 2 -> player.sendMessage("§eУ вас нет штрафов для оплаты.");
+        }
+    }
+
+    public void openPostomatGUI(Player player, LocationData locationData) {
+        Inventory inv = Bukkit.createInventory(null, 27, "§6Постомат: " + locationData.getDisplayName());
+        inv.setItem(0, createButton(Material.CHEST, "§6Отправить посылку", "Выберите предмет"));
+        inv.setItem(1, createButton(Material.ENDER_CHEST, "§6Получить посылку", "Получить входящие"));
+        inv.setItem(26, createButton(Material.BARRIER, "§cЗакрыть", ""));
+        player.openInventory(inv);
+    }
+
+    @EventHandler
+    public void onPostomatClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (!event.getView().getTitle().startsWith("§6Постомат:")) return;
+        event.setCancelled(true);
+        int slot = event.getRawSlot();
+        if (slot == 26) { player.closeInventory(); return; }
+        if (slot == 0) player.sendMessage("§eФункция отправки посылок в разработке.");
+        if (slot == 1) player.sendMessage("§eУ вас нет посылок.");
+    }
+
+    public void openBusinessGUI(Player player, LocationData locationData) {
+        plugin.getModuleManager().getBusinessManager().openBusinessLocationGUI(player, locationData);
+    }
+
+    private ItemStack createButton(Material mat, String name, String lore) {
+        ItemStack item = new ItemStack(mat);
+        ItemMeta meta = item.getItemMeta();
+        meta.setDisplayName(name);
+        if (!lore.isEmpty()) meta.setLore(Collections.singletonList(lore));
+        item.setItemMeta(meta);
+        return item;
+    }
+
     private void loadVehicles() {
-        // Загрузка из data/vehicles/ (реализовать позже)
-        plugin.getLogger().info("Загрузка машин (заглушка, но после первого спавна всё работает)");
+        plugin.getLogger().info("Загрузка машин (заглушка)");
     }
 
     public void saveAll() {
@@ -469,7 +657,6 @@ public class VehicleManager implements Listener {
         }
     }
 
-    // === Внутренний класс для данных модели ===
     private static class VehicleModelData {
         private final String typeKey;
         private final String name;
@@ -497,4 +684,4 @@ public class VehicleManager implements Listener {
         public int getHealth() { return health; }
         public double getPrice() { return price; }
     }
-}
+            }
