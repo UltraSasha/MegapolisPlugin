@@ -17,7 +17,7 @@ public class SkinCommand implements CommandExecutor {
 
         if (args.length == 0) {
             player.sendMessage("§eИспользование: /skin <имя_скина>");
-            // player.sendMessage("§eПример: /skin Bumblebee");
+            player.sendMessage("§eПример: /skin Bumblebee");
             return true;
         }
 
