@@ -3,19 +3,36 @@ package com.megapolis.core.modules.transport;
 import com.megapolis.core.MegapolisPlugin;
 import com.megapolis.core.data.DataManager;
 import com.megapolis.core.modules.locations.LocationManager.LocationData;
-import org.bukkit.Bukkit; import org.bukkit.Location; import org.bukkit.Material; import org.bukkit.Particle; import org.bukkit.World;
+import org.bukkit.Bukkit;
+import org.bukkit.Location;
+import org.bukkit.Material;
+import org.bukkit.Particle;
+import org.bukkit.World;
 import org.bukkit.configuration.ConfigurationSection;
-import org.bukkit.entity.Entity; import org.bukkit.entity.Horse; import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler; import org.bukkit.event.Listener; import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.inventory.Inventory; import org.bukkit.inventory.ItemStack; import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.persistence.PersistentDataType; import org.bukkit.NamespacedKey;
-import org.bukkit.util.io.BukkitObjectInputStream; import org.bukkit.util.io.BukkitObjectOutputStream;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Horse;
+import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataType;
+import org.bukkit.NamespacedKey;
+import org.bukkit.util.io.BukkitObjectInputStream;
+import org.bukkit.util.io.BukkitObjectOutputStream;
 import org.yaml.snakeyaml.external.biz.base64Coder.Base64Coder;
 
-import java.io.*; import java.util.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.util.*;
 
 public class VehicleManager implements Listener {
-    private final MegapolisPlugin plugin; private final DataManager dataManager;
+
+    private final MegapolisPlugin plugin;
+    private final DataManager dataManager;
     private final Map<UUID, Vehicle> vehicles = new HashMap<>();
     private final Map<UUID, UUID> playerToVehicle = new HashMap<>();
     private final Map<UUID, Inventory> trunkInventories = new HashMap<>();
@@ -23,8 +40,10 @@ public class VehicleManager implements Listener {
     private final Map<UUID, String> selectedVehicleForTuning = new HashMap<>();
 
     public VehicleManager(MegapolisPlugin plugin) {
-        this.plugin = plugin; this.dataManager = plugin.getDataManager();
-        loadVehicles(); loadAvailableModels();
+        this.plugin = plugin;
+        this.dataManager = plugin.getDataManager();
+        loadVehicles();
+        loadAvailableModels();
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
@@ -44,16 +63,27 @@ public class VehicleManager implements Listener {
     }
 
     public Vehicle spawnVehicle(Player owner, VehicleType type, Location location) {
-        World world = location.getWorld(); if (world == null) return null;
+        World world = location.getWorld();
+        if (world == null) return null;
+
         Horse horse = world.spawn(location, Horse.class);
-        horse.setAdult(); horse.setTamed(true); horse.setOwner(owner); horse.setDomestication(1);
-        horse.setCustomName(type.getDisplayName()); horse.setCustomNameVisible(true);
+        horse.setAdult();
+        horse.setTamed(true);
+        horse.setOwner(owner);
+        horse.setDomestication(1);
+        horse.setCustomName(type.getDisplayName());
+        horse.setCustomNameVisible(true);
+
         ItemStack armor = new ItemStack(Material.LEATHER_HORSE_ARMOR);
-        ItemMeta meta = armor.getItemMeta(); meta.setCustomModelData(type.getModelId()); armor.setItemMeta(meta);
+        ItemMeta meta = armor.getItemMeta();
+        meta.setCustomModelData(type.getModelId());
+        armor.setItemMeta(meta);
         horse.getInventory().setArmor(armor);
+
         NamespacedKey key = new NamespacedKey(plugin, "vehicle_id");
         String vehicleIdStr = UUID.randomUUID().toString();
         horse.getPersistentDataContainer().set(key, PersistentDataType.STRING, vehicleIdStr);
+
         UUID vehicleId = UUID.fromString(vehicleIdStr);
         Vehicle vehicle = new Vehicle(vehicleId, owner.getUniqueId(), type, location, 100, 100);
         vehicles.put(vehicleId, vehicle);
@@ -71,22 +101,40 @@ public class VehicleManager implements Listener {
     }
 
     public void unregisterVehicle(UUID vehicleId) {
-        vehicles.remove(vehicleId); trunkInventories.remove(vehicleId);
+        vehicles.remove(vehicleId);
+        trunkInventories.remove(vehicleId);
         playerToVehicle.entrySet().removeIf(e -> e.getValue().equals(vehicleId));
     }
 
-    public Vehicle getVehicleById(UUID vehicleId) { return vehicles.get(vehicleId); }
-    public Vehicle getVehicleByEntity(Entity entity) { return entity == null ? null : vehicles.get(entity.getUniqueId()); }
+    public Vehicle getVehicleById(UUID vehicleId) {
+        return vehicles.get(vehicleId);
+    }
+
+    public Vehicle getVehicleByEntity(Entity entity) {
+        return entity == null ? null : vehicles.get(entity.getUniqueId());
+    }
 
     public boolean boardVehicle(Player player, Horse horse) {
         NamespacedKey key = new NamespacedKey(plugin, "vehicle_id");
         String idStr = horse.getPersistentDataContainer().get(key, PersistentDataType.STRING);
-        if (idStr == null) { player.sendMessage("§cЭта лошадь не зарегистрирована."); return false; }
+        if (idStr == null) {
+            player.sendMessage("§cЭта лошадь не зарегистрирована.");
+            return false;
+        }
         UUID vehicleId = UUID.fromString(idStr);
-        if (!vehicles.containsKey(vehicleId)) { player.sendMessage("§cМашина не найдена."); return false; }
-        if (playerToVehicle.containsKey(player.getUniqueId())) { player.sendMessage("§cВы уже в машине."); return false; }
+        if (!vehicles.containsKey(vehicleId)) {
+            player.sendMessage("§cМашина не найдена.");
+            return false;
+        }
+        if (playerToVehicle.containsKey(player.getUniqueId())) {
+            player.sendMessage("§cВы уже в машине.");
+            return false;
+        }
         Vehicle vehicle = vehicles.get(vehicleId);
-        if (!vehicle.getOwner().equals(player.getUniqueId())) { player.sendMessage("§cВы не владелец."); return false; }
+        if (!vehicle.getOwner().equals(player.getUniqueId())) {
+            player.sendMessage("§cВы не владелец.");
+            return false;
+        }
         horse.addPassenger(player);
         playerToVehicle.put(player.getUniqueId(), vehicleId);
         player.sendMessage("§aВы сели в машину. W/S — газ/тормоз, F — двигатель, Shift — выход.");
@@ -97,7 +145,9 @@ public class VehicleManager implements Listener {
         UUID vehicleId = playerToVehicle.remove(player.getUniqueId());
         if (vehicleId == null) return;
         Entity entity = Bukkit.getEntity(vehicleId);
-        if (entity instanceof Horse horse) horse.removePassenger(player);
+        if (entity instanceof Horse horse) {
+            horse.removePassenger(player);
+        }
         player.sendMessage("§eВы вышли из машины.");
     }
 
@@ -107,35 +157,54 @@ public class VehicleManager implements Listener {
     }
 
     public Vehicle getNearestVehicle(Player player) {
-        Vehicle nearest = null; double minDist = Double.MAX_VALUE;
+        Vehicle nearest = null;
+        double minDist = Double.MAX_VALUE;
         for (Vehicle v : vehicles.values()) {
             Entity entity = Bukkit.getEntity(v.getVehicleId());
             if (entity == null) continue;
             double dist = entity.getLocation().distance(player.getLocation());
-            if (dist < minDist) { minDist = dist; nearest = v; }
+            if (dist < minDist) {
+                minDist = dist;
+                nearest = v;
+            }
         }
         return nearest;
     }
 
     public void handleMovement(Player player, boolean forward, boolean backward, boolean nitro) {
-        Vehicle vehicle = getPlayerVehicle(player); if (vehicle == null) return;
+        Vehicle vehicle = getPlayerVehicle(player);
+        if (vehicle == null) return;
         Entity entity = Bukkit.getEntity(vehicle.getVehicleId());
         if (!(entity instanceof Horse horse)) return;
-        if (!vehicle.getEngineRunning()) { horse.setVelocity(horse.getVelocity().multiply(0)); return; }
+
+        if (!vehicle.getEngineRunning()) {
+            horse.setVelocity(horse.getVelocity().multiply(0));
+            return;
+        }
         double speed = 0.3;
-        if (nitro && vehicle.getNitroLevel() > 0) speed *= 1.0 + (vehicle.getNitroLevel() * 0.35);
+        if (nitro && vehicle.getNitroLevel() > 0) {
+            speed *= 1.0 + (vehicle.getNitroLevel() * 0.35);
+        }
+
         Location eye = player.getEyeLocation();
         float yawDiff = eye.getYaw() - horse.getLocation().getYaw();
         while (yawDiff > 180) yawDiff -= 360;
         while (yawDiff < -180) yawDiff += 360;
+
         if (Math.abs(yawDiff) > 5) {
             float newYaw = horse.getLocation().getYaw() + yawDiff * 0.1f;
             horse.teleport(new Location(horse.getWorld(), horse.getLocation().getX(),
                     horse.getLocation().getY(), horse.getLocation().getZ(), newYaw, horse.getLocation().getPitch()));
         }
-        if (forward) horse.setVelocity(horse.getLocation().getDirection().multiply(speed));
-        else if (backward) horse.setVelocity(horse.getLocation().getDirection().multiply(-speed * 0.5));
-        else horse.setVelocity(horse.getVelocity().multiply(0.9));
+
+        if (forward) {
+            horse.setVelocity(horse.getLocation().getDirection().multiply(speed));
+        } else if (backward) {
+            horse.setVelocity(horse.getLocation().getDirection().multiply(-speed * 0.5));
+        } else {
+            horse.setVelocity(horse.getVelocity().multiply(0.9));
+        }
+
         if (forward || backward) {
             int fuel = vehicle.getFuel() - (nitro ? 3 : 1);
             if (fuel < 0) fuel = 0;
@@ -153,8 +222,9 @@ public class VehicleManager implements Listener {
         int newHealth = vehicle.getHealth() - damage;
         if (newHealth < 0) newHealth = 0;
         vehicle.setHealth(newHealth);
-        if (newHealth == 0) explodeVehicle(vehicle);
-        else {
+        if (newHealth == 0) {
+            explodeVehicle(vehicle);
+        } else {
             Entity entity = Bukkit.getEntity(vehicle.getVehicleId());
             if (entity != null) {
                 for (Entity passenger : entity.getPassengers()) {
@@ -188,7 +258,10 @@ public class VehicleManager implements Listener {
 
     public void openTrunk(Player player) {
         Vehicle vehicle = getPlayerVehicle(player);
-        if (vehicle == null) { player.sendMessage("§cВы не в машине."); return; }
+        if (vehicle == null) {
+            player.sendMessage("§cВы не в машине.");
+            return;
+        }
         Inventory trunk = trunkInventories.get(vehicle.getVehicleId());
         if (trunk == null) {
             trunk = Bukkit.createInventory(null, 27, "Багажник");
@@ -200,7 +273,10 @@ public class VehicleManager implements Listener {
     public void showPTS(Player player) {
         Vehicle vehicle = getPlayerVehicle(player);
         if (vehicle == null) vehicle = getNearestVehicle(player);
-        if (vehicle == null) { player.sendMessage("§cНет машин рядом."); return; }
+        if (vehicle == null) {
+            player.sendMessage("§cНет машин рядом.");
+            return;
+        }
         player.sendMessage("§6=== ПТС ===
 §7Модель: " + vehicle.getType().getDisplayName() +
                 "
@@ -216,7 +292,10 @@ public class VehicleManager implements Listener {
 
     public void toggleEngine(Player player) {
         Vehicle vehicle = getPlayerVehicle(player);
-        if (vehicle == null) { player.sendMessage("§cВы не в машине."); return; }
+        if (vehicle == null) {
+            player.sendMessage("§cВы не в машине.");
+            return;
+        }
         vehicle.setEngineRunning(!vehicle.getEngineRunning());
         player.sendMessage("§6Двигатель " + (vehicle.getEngineRunning() ? "§aзаведён" : "§cзаглушён"));
     }
@@ -238,7 +317,8 @@ public class VehicleManager implements Listener {
                     "§eНажмите для покупки"
             ));
             item.setItemMeta(meta);
-            inv.setItem(slot, item); slot++;
+            inv.setItem(slot, item);
+            slot++;
         }
         inv.setItem(53, createButton(Material.BARRIER, "§cЗакрыть", ""));
         player.openInventory(inv);
@@ -250,17 +330,30 @@ public class VehicleManager implements Listener {
         if (!event.getView().getTitle().equals("§bАвторынок")) return;
         event.setCancelled(true);
         int slot = event.getRawSlot();
-        if (slot == 53) { player.closeInventory(); return; }
+        if (slot == 53) {
+            player.closeInventory();
+            return;
+        }
         if (slot < 0 || slot >= availableModels.size()) return;
+
         String key = (String) availableModels.keySet().toArray()[slot];
         VehicleModelData model = availableModels.get(key);
         if (model == null) return;
+
         double balance = plugin.getEconomyManager().getBalance(player);
-        if (balance < model.getPrice()) { player.sendMessage("§cНедостаточно денег!"); player.closeInventory(); return; }
+        if (balance < model.getPrice()) {
+            player.sendMessage("§cНедостаточно денег!");
+            player.closeInventory();
+            return;
+        }
         VehicleType type = VehicleType.valueOf(key.toUpperCase());
         Location spawn = player.getLocation().add(0, 0, 3);
         Vehicle vehicle = spawnVehicle(player, type, spawn);
-        if (vehicle == null) { player.sendMessage("§cОшибка создания машины."); player.closeInventory(); return; }
+        if (vehicle == null) {
+            player.sendMessage("§cОшибка создания машины.");
+            player.closeInventory();
+            return;
+        }
         plugin.getEconomyManager().withdraw(player, model.getPrice());
         plugin.getEconomyManager().payToServerBot(player, model.getPrice());
         player.sendMessage("§aВы купили " + model.getName() + " за " + model.getPrice() + " монет.");
@@ -283,7 +376,8 @@ public class VehicleManager implements Listener {
                         "§eЛКМ — сесть, ПКМ — вызвать"
                 ));
                 item.setItemMeta(meta);
-                inv.setItem(slot, item); slot++;
+                inv.setItem(slot, item);
+                slot++;
             }
         }
         inv.setItem(53, createButton(Material.BARRIER, "§cЗакрыть", ""));
@@ -296,23 +390,36 @@ public class VehicleManager implements Listener {
         if (!event.getView().getTitle().startsWith("§6Стоянка:")) return;
         event.setCancelled(true);
         int slot = event.getRawSlot();
-        if (slot == 53) { player.closeInventory(); return; }
-        int index = 0; Vehicle target = null;
+        if (slot == 53) {
+            player.closeInventory();
+            return;
+        }
+
+        int index = 0;
+        Vehicle target = null;
         for (Vehicle v : vehicles.values()) {
             if (v.getOwner().equals(player.getUniqueId())) {
-                if (index == slot) { target = v; break; }
+                if (index == slot) {
+                    target = v;
+                    break;
+                }
                 index++;
             }
         }
         if (target == null) return;
+
         Entity entity = Bukkit.getEntity(target.getVehicleId());
         if (event.isLeftClick()) {
             if (entity instanceof Horse horse && entity.getLocation().distance(player.getLocation()) < 10) {
-                boardVehicle(player, horse); player.closeInventory();
-            } else player.sendMessage("§cМашина слишком далеко.");
+                boardVehicle(player, horse);
+                player.closeInventory();
+            } else {
+                player.sendMessage("§cМашина слишком далеко.");
+            }
         } else if (event.isRightClick() && entity != null) {
             entity.teleport(player.getLocation());
-            player.sendMessage("§aМашина вызвана!"); player.closeInventory();
+            player.sendMessage("§aМашина вызвана!");
+            player.closeInventory();
         }
     }
 
@@ -333,20 +440,86 @@ public class VehicleManager implements Listener {
         if (!event.getView().getTitle().startsWith("§6Тюнинг:")) return;
         event.setCancelled(true);
         int slot = event.getRawSlot();
-        if (slot == 26) { player.closeInventory(); return; }
+        if (slot == 26) {
+            player.closeInventory();
+            return;
+        }
         if (slot > 4) return;
+
         Vehicle vehicle = getPlayerVehicle(player);
-        if (vehicle == null) { player.sendMessage("§cВы не в машине!"); player.closeInventory(); return; }
+        if (vehicle == null) {
+            player.sendMessage("§cВы не в машине!");
+            player.closeInventory();
+            return;
+        }
         ConfigurationSection tuning = plugin.getConfig().getConfigurationSection("tuning");
         if (tuning == null) return;
+
         switch (slot) {
-            case 0 -> { int level = vehicle.getEngineLevel(); if (level >= 3) { player.sendMessage("§cМаксимальный уровень!"); return; } int price = tuning.getInt("engine.price_per_level", 100000); if (plugin.getEconomyManager().getBalance(player) < price) { player.sendMessage("§cНедостаточно денег!"); return; } plugin.getEconomyManager().withdraw(player, price); vehicle.setEngineLevel(level + 1); player.sendMessage("§aДвигатель улучшен до уровня " + (level + 1)); }
-            case 1 -> { int level = vehicle.getBrakesLevel(); if (level >= 3) { player.sendMessage("§cМаксимальный уровень!"); return; } int price = tuning.getInt("brakes.price_per_level", 80000); if (plugin.getEconomyManager().getBalance(player) < price) { player.sendMessage("§cНедостаточно денег!"); return; } plugin.getEconomyManager().withdraw(player, price); vehicle.setBrakesLevel(level + 1); player.sendMessage("§aТормоза улучшены до уровня " + (level + 1)); }
-            case 2 -> { int level = vehicle.getHydraulicsLevel(); if (level >= 2) { player.sendMessage("§cМаксимальный уровень!"); return; } int price = tuning.getInt("hydraulics.price_per_level", 150000); if (plugin.getEconomyManager().getBalance(player) < price) { player.sendMessage("§cНедостаточно денег!"); return; } plugin.getEconomyManager().withdraw(player, price); vehicle.setHydraulicsLevel(level + 1); player.sendMessage("§aГидравлика улучшена до уровня " + (level + 1)); }
-            case 3 -> { int level = vehicle.getNitroLevel(); if (level >= 3) { player.sendMessage("§cМаксимальный уровень!"); return; } int price = tuning.getInt("nitro.price_per_level", 200000); if (plugin.getEconomyManager().getBalance(player) < price) { player.sendMessage("§cНедостаточно денег!"); return; } plugin.getEconomyManager().withdraw(player, price); vehicle.setNitroLevel(level + 1); player.sendMessage("§aНитро улучшена до уровня " + (level + 1)); }
+            case 0 -> {
+                int level = vehicle.getEngineLevel();
+                if (level >= 3) {
+                    player.sendMessage("§cМаксимальный уровень!");
+                    return;
+                }
+                int price = tuning.getInt("engine.price_per_level", 100000);
+                if (plugin.getEconomyManager().getBalance(player) < price) {
+                    player.sendMessage("§cНедостаточно денег!");
+                    return;
+                }
+                plugin.getEconomyManager().withdraw(player, price);
+                vehicle.setEngineLevel(level + 1);
+                player.sendMessage("§aДвигатель улучшен до уровня " + (level + 1));
+            }
+            case 1 -> {
+                int level = vehicle.getBrakesLevel();
+                if (level >= 3) {
+                    player.sendMessage("§cМаксимальный уровень!");
+                    return;
+                }
+                int price = tuning.getInt("brakes.price_per_level", 80000);
+                if (plugin.getEconomyManager().getBalance(player) < price) {
+                    player.sendMessage("§cНедостаточно денег!");
+                    return;
+                }
+                plugin.getEconomyManager().withdraw(player, price);
+                vehicle.setBrakesLevel(level + 1);
+                player.sendMessage("§aТормоза улучшены до уровня " + (level + 1));
+            }
+            case 2 -> {
+                int level = vehicle.getHydraulicsLevel();
+                if (level >= 2) {
+                    player.sendMessage("§cМаксимальный уровень!");
+                    return;
+                }
+                int price = tuning.getInt("hydraulics.price_per_level", 150000);
+                if (plugin.getEconomyManager().getBalance(player) < price) {
+                    player.sendMessage("§cНедостаточно денег!");
+                    return;
+                }
+                plugin.getEconomyManager().withdraw(player, price);
+                vehicle.setHydraulicsLevel(level + 1);
+                player.sendMessage("§aГидравлика улучшена до уровня " + (level + 1));
+            }
+            case 3 -> {
+                int level = vehicle.getNitroLevel();
+                if (level >= 3) {
+                    player.sendMessage("§cМаксимальный уровень!");
+                    return;
+                }
+                int price = tuning.getInt("nitro.price_per_level", 200000);
+                if (plugin.getEconomyManager().getBalance(player) < price) {
+                    player.sendMessage("§cНедостаточно денег!");
+                    return;
+                }
+                plugin.getEconomyManager().withdraw(player, price);
+                vehicle.setNitroLevel(level + 1);
+                player.sendMessage("§aНитро улучшена до уровня " + (level + 1));
+            }
             case 4 -> openColorSelectionGUI(player, vehicle);
         }
-        player.closeInventory(); openTuningGUI(player, null);
+        player.closeInventory();
+        openTuningGUI(player, null);
     }
 
     private void openColorSelectionGUI(Player player, Vehicle vehicle) {
@@ -366,12 +539,17 @@ public class VehicleManager implements Listener {
         if (!event.getView().getTitle().equals("§6Выбор окраса")) return;
         event.setCancelled(true);
         int slot = event.getRawSlot();
-        if (slot == 26) { player.closeInventory(); openTuningGUI(player, null); return; }
+        if (slot == 26) {
+            player.closeInventory();
+            openTuningGUI(player, null);
+            return;
+        }
         String idStr = selectedVehicleForTuning.get(player.getUniqueId());
         if (idStr == null) return;
         UUID vehicleId = UUID.fromString(idStr);
         Vehicle vehicle = vehicles.get(vehicleId);
         if (vehicle == null) return;
+
         Entity entity = Bukkit.getEntity(vehicleId);
         if (entity instanceof Horse horse) {
             String[] colors = {"RED", "BLUE", "GREEN", "YELLOW", "BLACK", "WHITE", "ORANGE", "PURPLE"};
@@ -388,7 +566,8 @@ public class VehicleManager implements Listener {
                 player.sendMessage("§aЦвет изменён на " + colors[slot]);
             }
         }
-        player.closeInventory(); openTuningGUI(player, null);
+        player.closeInventory();
+        openTuningGUI(player, null);
     }
 
     public void openPoliceGUI(Player player, LocationData locationData) {
@@ -406,7 +585,10 @@ public class VehicleManager implements Listener {
         if (!event.getView().getTitle().startsWith("§cПолиция:")) return;
         event.setCancelled(true);
         int slot = event.getRawSlot();
-        if (slot == 26) { player.closeInventory(); return; }
+        if (slot == 26) {
+            player.closeInventory();
+            return;
+        }
         switch (slot) {
             case 0 -> player.sendMessage("§eУ вас нет штрафов.");
             case 1 -> player.sendMessage("§eЛицензии можно купить за 50,000 монет.");
@@ -428,9 +610,16 @@ public class VehicleManager implements Listener {
         if (!event.getView().getTitle().startsWith("§6Постомат:")) return;
         event.setCancelled(true);
         int slot = event.getRawSlot();
-        if (slot == 26) { player.closeInventory(); return; }
-        if (slot == 0) player.sendMessage("§eФункция отправки посылок в разработке.");
-        if (slot == 1) player.sendMessage("§eУ вас нет посылок.");
+        if (slot == 26) {
+            player.closeInventory();
+            return;
+        }
+        if (slot == 0) {
+            player.sendMessage("§eФункция отправки посылок в разработке.");
+        }
+        if (slot == 1) {
+            player.sendMessage("§eУ вас нет посылок.");
+        }
     }
 
     public void openBusinessGUI(Player player, LocationData locationData) {
@@ -441,12 +630,16 @@ public class VehicleManager implements Listener {
         ItemStack item = new ItemStack(mat);
         ItemMeta meta = item.getItemMeta();
         meta.setDisplayName(name);
-        if (!lore.isEmpty()) meta.setLore(Collections.singletonList(lore));
+        if (!lore.isEmpty()) {
+            meta.setLore(Collections.singletonList(lore));
+        }
         item.setItemMeta(meta);
         return item;
     }
 
-    private void loadVehicles() { /* заглушка */ }
+    private void loadVehicles() {
+        // заглушка
+    }
 
     public void saveAll() {
         for (Map.Entry<UUID, Vehicle> entry : vehicles.entrySet()) {
@@ -457,19 +650,43 @@ public class VehicleManager implements Listener {
                 try (ByteArrayOutputStream baos = new ByteArrayOutputStream();
                      BukkitObjectOutputStream boos = new BukkitObjectOutputStream(baos)) {
                     boos.writeInt(trunk.getSize());
-                    for (int i = 0; i < trunk.getSize(); i++) boos.writeObject(trunk.getItem(i));
+                    for (int i = 0; i < trunk.getSize(); i++) {
+                        boos.writeObject(trunk.getItem(i));
+                    }
                     vehicle.setTrunkData(Base64Coder.encodeLines(baos.toByteArray()));
-                } catch (IOException e) { plugin.getLogger().warning("Ошибка сохранения багажника: " + e.getMessage()); }
+                } catch (IOException e) {
+                    plugin.getLogger().warning("Ошибка сохранения багажника: " + e.getMessage());
+                }
             }
             dataManager.save("vehicles/" + vehicleId, vehicle);
         }
     }
 
     private static class VehicleModelData {
-        private final String typeKey; private final String name; private final int modelId; private final int maxSpeed; private final int fuelCapacity; private final int health; private final double price;
+        private final String typeKey;
+        private final String name;
+        private final int modelId;
+        private final int maxSpeed;
+        private final int fuelCapacity;
+        private final int health;
+        private final double price;
+
         public VehicleModelData(String typeKey, String name, int modelId, int maxSpeed, int fuelCapacity, int health, double price) {
-            this.typeKey = typeKey; this.name = name; this.modelId = modelId; this.maxSpeed = maxSpeed; this.fuelCapacity = fuelCapacity; this.health = health; this.price = price;
+            this.typeKey = typeKey;
+            this.name = name;
+            this.modelId = modelId;
+            this.maxSpeed = maxSpeed;
+            this.fuelCapacity = fuelCapacity;
+            this.health = health;
+            this.price = price;
         }
-        public String getTypeKey() { return typeKey; } public String getName() { return name; } public int getModelId() { return modelId; } public int getMaxSpeed() { return maxSpeed; } public int getFuelCapacity() { return fuelCapacity; } public int getHealth() { return health; } public double getPrice() { return price; }
+
+        public String getTypeKey() { return typeKey; }
+        public String getName() { return name; }
+        public int getModelId() { return modelId; }
+        public int getMaxSpeed() { return maxSpeed; }
+        public int getFuelCapacity() { return fuelCapacity; }
+        public int getHealth() { return health; }
+        public double getPrice() { return price; }
     }
 }

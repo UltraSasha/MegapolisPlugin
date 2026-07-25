@@ -86,9 +86,15 @@ public class MarketManager implements Listener {
         }
         try {
             double price = Double.parseDouble(message);
-            if (price <= 0) { player.sendMessage("§cЦена должна быть > 0."); return; }
+            if (price <= 0) {
+                player.sendMessage("§cЦена должна быть > 0.");
+                return;
+            }
             ItemStack item = sellItemBuffer.remove(player.getUniqueId());
-            if (item == null) { player.sendMessage("§cОшибка."); return; }
+            if (item == null) {
+                player.sendMessage("§cОшибка.");
+                return;
+            }
             player.getInventory().setItemInMainHand(null);
             String auctionId = UUID.randomUUID().toString();
             AuctionLot lot = new AuctionLot(auctionId, player.getUniqueId(), item, price, System.currentTimeMillis());
@@ -108,9 +114,19 @@ public class MarketManager implements Listener {
         event.setCancelled(true);
 
         int slot = event.getRawSlot();
-        if (slot == 0) { startSellProcess(player); player.closeInventory(); return; }
-        if (slot == 1) { openMyLots(player); return; }
-        if (slot == 53) { player.closeInventory(); return; }
+        if (slot == 0) {
+            startSellProcess(player);
+            player.closeInventory();
+            return;
+        }
+        if (slot == 1) {
+            openMyLots(player);
+            return;
+        }
+        if (slot == 53) {
+            player.closeInventory();
+            return;
+        }
         if (slot >= 9 && slot < 53) {
             int index = slot - 9;
             if (index >= activeAuctions.size()) return;
@@ -124,7 +140,10 @@ public class MarketManager implements Listener {
             double balance = plugin.getEconomyManager().getBalance(player);
             if (event.isShiftClick()) {
                 double bidPrice = lot.getPrice() * 1.1;
-                if (balance < bidPrice) { player.sendMessage("§cНедостаточно средств."); return; }
+                if (balance < bidPrice) {
+                    player.sendMessage("§cНедостаточно средств.");
+                    return;
+                }
                 plugin.getEconomyManager().withdraw(player, bidPrice);
                 plugin.getEconomyManager().deposit(Bukkit.getOfflinePlayer(lot.getSeller()), bidPrice);
                 player.getInventory().addItem(lot.getItem());
@@ -133,8 +152,14 @@ public class MarketManager implements Listener {
                 player.sendMessage("§aВы купили за " + bidPrice + " монет.");
                 player.closeInventory();
             } else {
-                if (balance < lot.getPrice()) { player.sendMessage("§cНедостаточно средств."); return; }
-                if (player.getInventory().firstEmpty() == -1) { player.sendMessage("§cИнвентарь полон."); return; }
+                if (balance < lot.getPrice()) {
+                    player.sendMessage("§cНедостаточно средств.");
+                    return;
+                }
+                if (player.getInventory().firstEmpty() == -1) {
+                    player.sendMessage("§cИнвентарь полон.");
+                    return;
+                }
                 plugin.getEconomyManager().withdraw(player, lot.getPrice());
                 plugin.getEconomyManager().deposit(Bukkit.getOfflinePlayer(lot.getSeller()), lot.getPrice());
                 player.getInventory().addItem(lot.getItem());
@@ -176,7 +201,10 @@ public class MarketManager implements Listener {
         String targetId = null;
         for (AuctionLot lot : activeAuctions.values()) {
             if (lot.getSeller().equals(player.getUniqueId())) {
-                if (index == slot) { targetId = lot.getAuctionId(); break; }
+                if (index == slot) {
+                    targetId = lot.getAuctionId();
+                    break;
+                }
                 index++;
             }
         }
@@ -216,8 +244,14 @@ public class MarketManager implements Listener {
 
     public void listVehicleForAuction(Player player, UUID vehicleId, double price) {
         Vehicle vehicle = plugin.getModuleManager().getVehicleManager().getVehicleById(vehicleId);
-        if (vehicle == null) { player.sendMessage("§cМашина не найдена."); return; }
-        if (!vehicle.getOwner().equals(player.getUniqueId())) { player.sendMessage("§cВы не владелец."); return; }
+        if (vehicle == null) {
+            player.sendMessage("§cМашина не найдена.");
+            return;
+        }
+        if (!vehicle.getOwner().equals(player.getUniqueId())) {
+            player.sendMessage("§cВы не владелец.");
+            return;
+        }
         VehicleAuctionLot lot = new VehicleAuctionLot(
                 vehicleId,
                 player.getUniqueId(),
@@ -242,20 +276,34 @@ public class MarketManager implements Listener {
         if (!event.getView().getTitle().equals("§6Авторынок (игроки)")) return;
         event.setCancelled(true);
         int slot = event.getRawSlot();
-        if (slot == 53) { player.closeInventory(); return; }
+        if (slot == 53) {
+            player.closeInventory();
+            return;
+        }
         if (slot < 0 || slot >= vehicleAuctions.size()) return;
         UUID vehicleId = (UUID) vehicleAuctions.keySet().toArray()[slot];
         VehicleAuctionLot lot = vehicleAuctions.get(vehicleId);
         if (lot == null) return;
-        if (lot.getSeller().equals(player.getUniqueId())) { player.sendMessage("§cНельзя купить свою машину."); return; }
+        if (lot.getSeller().equals(player.getUniqueId())) {
+            player.sendMessage("§cНельзя купить свою машину.");
+            return;
+        }
         double balance = plugin.getEconomyManager().getBalance(player);
-        if (balance < lot.getPrice()) { player.sendMessage("§cНедостаточно денег!"); return; }
+        if (balance < lot.getPrice()) {
+            player.sendMessage("§cНедостаточно денег!");
+            return;
+        }
         VehicleType type;
         try {
             type = VehicleType.valueOf(lot.getVehicleName().toUpperCase().replace(" ", "_"));
-        } catch (IllegalArgumentException e) { type = VehicleType.CAR; }
+        } catch (IllegalArgumentException e) {
+            type = VehicleType.CAR;
+        }
         Vehicle newVehicle = plugin.getModuleManager().getVehicleManager().spawnVehicle(player, type, player.getLocation());
-        if (newVehicle == null) { player.sendMessage("§cОшибка создания машины."); return; }
+        if (newVehicle == null) {
+            player.sendMessage("§cОшибка создания машины.");
+            return;
+        }
         plugin.getEconomyManager().withdraw(player, lot.getPrice());
         plugin.getEconomyManager().deposit(Bukkit.getOfflinePlayer(lot.getSeller()), lot.getPrice());
         vehicleAuctions.remove(vehicleId);
@@ -264,12 +312,19 @@ public class MarketManager implements Listener {
         player.closeInventory();
     }
 
-    public void saveAuctions() { plugin.getDataManager().save("auctions", activeAuctions); }
+    public void saveAuctions() {
+        plugin.getDataManager().save("auctions", activeAuctions);
+    }
+
     private void loadAuctions() {
         Map<String, AuctionLot> loaded = plugin.getDataManager().load("auctions", Map.class);
         if (loaded != null) activeAuctions.putAll(loaded);
     }
-    private void saveVehicleAuctions() { plugin.getDataManager().save("vehicle_auctions", vehicleAuctions); }
+
+    private void saveVehicleAuctions() {
+        plugin.getDataManager().save("vehicle_auctions", vehicleAuctions);
+    }
+
     private void loadVehicleAuctions() {
         Map<UUID, VehicleAuctionLot> loaded = plugin.getDataManager().load("vehicle_auctions", Map.class);
         if (loaded != null) vehicleAuctions.putAll(loaded);
@@ -285,10 +340,20 @@ public class MarketManager implements Listener {
     }
 
     public static class AuctionLot {
-        private final String auctionId; private final UUID seller; private final ItemStack item; private final double price; private final long timestamp;
+        private final String auctionId;
+        private final UUID seller;
+        private final ItemStack item;
+        private final double price;
+        private final long timestamp;
+
         public AuctionLot(String auctionId, UUID seller, ItemStack item, double price, long timestamp) {
-            this.auctionId = auctionId; this.seller = seller; this.item = item; this.price = price; this.timestamp = timestamp;
+            this.auctionId = auctionId;
+            this.seller = seller;
+            this.item = item;
+            this.price = price;
+            this.timestamp = timestamp;
         }
+
         public String getAuctionId() { return auctionId; }
         public UUID getSeller() { return seller; }
         public ItemStack getItem() { return item; }
@@ -297,10 +362,24 @@ public class MarketManager implements Listener {
     }
 
     public static class VehicleAuctionLot {
-        private final UUID vehicleId; private final UUID seller; private final String vehicleName; private final int modelId; private final double price; private final int health; private final int fuel;
+        private final UUID vehicleId;
+        private final UUID seller;
+        private final String vehicleName;
+        private final int modelId;
+        private final double price;
+        private final int health;
+        private final int fuel;
+
         public VehicleAuctionLot(UUID vehicleId, UUID seller, String vehicleName, int modelId, double price, int health, int fuel) {
-            this.vehicleId = vehicleId; this.seller = seller; this.vehicleName = vehicleName; this.modelId = modelId; this.price = price; this.health = health; this.fuel = fuel;
+            this.vehicleId = vehicleId;
+            this.seller = seller;
+            this.vehicleName = vehicleName;
+            this.modelId = modelId;
+            this.price = price;
+            this.health = health;
+            this.fuel = fuel;
         }
+
         public UUID getVehicleId() { return vehicleId; }
         public UUID getSeller() { return seller; }
         public String getVehicleName() { return vehicleName; }
