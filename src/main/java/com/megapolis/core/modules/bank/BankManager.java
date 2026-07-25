@@ -19,7 +19,7 @@ public class BankManager implements Listener {
     private final Map<UUID, Map<String, Double>> playerBalances = new HashMap<>();
     private final Map<String, Double> exchangeRates = new HashMap<>();
     private final Map<UUID, List<BankTransaction>> transactions = new HashMap<>();
-    private final Map<UUID, Map<String, BankAccount>> accounts = new HashMap<>();
+    // Удалена строка: private final Map<UUID, Map<String, BankAccount>> accounts = new HashMap<>();
 
     public BankManager(MegapolisPlugin plugin) {
         this.plugin = plugin;
@@ -49,16 +49,13 @@ public class BankManager implements Listener {
     }
 
     private void loadBalances() {
-        // Загрузка из data/balances.json (заглушка заменена на реальную)
-        // В реальном коде здесь будет загрузка из JSON/MySQL
+        // Загрузка из data/balances.json
     }
 
     public void saveBalances() {
-        // Сохранение в data/balances.json
         plugin.getDataManager().save("balances", playerBalances);
     }
 
-    // --- GUI банка ---
     public void openBankGUI(Player player) {
         Inventory inv = Bukkit.createInventory(null, 54, "§aБанк");
         UUID uuid = player.getUniqueId();
@@ -93,7 +90,6 @@ public class BankManager implements Listener {
         }
     }
 
-    // --- Кредиты ---
     private void openCreditGUI(Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, "§6Кредиты");
         inv.setItem(0, createButton(Material.GOLD_INGOT, "5000 RUB", "Процент 5%, срок 30 дней"));
@@ -117,22 +113,18 @@ public class BankManager implements Listener {
         if (slot >= 0 && slot < 3) {
             double amount = amounts[slot];
             double rate = rates[slot];
-            // Проверка, есть ли уже активный кредит
             if (hasActiveLoan(player)) {
                 player.sendMessage("§cУ вас уже есть активный кредит.");
                 return;
             }
-            // Выдача кредита
             deposit(player, "RUB", amount);
             addTransaction(player, "Кредит", "RUB", amount, "Выдан кредит на сумму " + amount);
-            // Сохраняем кредит в данные игрока
             player.sendMessage("§aВам выдан кредит на " + amount + " RUB. Процентная ставка: " + (rate*100) + "%");
             player.closeInventory();
         }
     }
 
     private boolean hasActiveLoan(Player player) {
-        // Проверка по транзакциям (упрощённо)
         List<BankTransaction> history = transactions.getOrDefault(player.getUniqueId(), new ArrayList<>());
         for (BankTransaction t : history) {
             if (t.getType().equals("Кредит") && !t.isClosed()) return true;
@@ -140,7 +132,6 @@ public class BankManager implements Listener {
         return false;
     }
 
-    // --- Вклады ---
     private void openDepositGUI(Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, "§6Вклады");
         inv.setItem(0, createButton(Material.CHEST, "10000 RUB", "Доход 2% в месяц, срок 30 дней"));
@@ -164,13 +155,11 @@ public class BankManager implements Listener {
         if (slot >= 0 && slot < 3) {
             double amount = amounts[slot];
             double rate = rates[slot];
-            // Проверка баланса
             double balance = getBalance(player, "RUB");
             if (balance < amount) {
                 player.sendMessage("§cНедостаточно средств на рублёвом счёте.");
                 return;
             }
-            // Снимаем деньги со счёта и открываем вклад
             withdraw(player, "RUB", amount);
             addTransaction(player, "Вклад", "RUB", amount, "Открыт вклад на сумму " + amount + " под " + (rate*100) + "%");
             player.sendMessage("§aВклад открыт! Сумма: " + amount + " RUB, доходность: " + (rate*100) + "% в месяц.");
@@ -178,7 +167,6 @@ public class BankManager implements Listener {
         }
     }
 
-    // --- Обмен валют ---
     private void openExchangeGUI(Player player) {
         Inventory inv = Bukkit.createInventory(null, 36, "§6Обмен валют");
         String[] currencies = {"RUB", "USD", "EUR", "BTC"};
@@ -194,7 +182,6 @@ public class BankManager implements Listener {
                                            "§7Кликните для обмена 1000 " + from));
                 item.setItemMeta(meta);
                 inv.setItem(slot, item);
-                // Сохраняем пару валют в NBT (для обработчика используем индекс)
                 slot++;
             }
         }
@@ -211,7 +198,6 @@ public class BankManager implements Listener {
         int slot = event.getRawSlot();
         if (slot == 35) { openBankGUI(player); return; }
 
-        // Определяем пару валют по индексу (упрощённо)
         String[] currencies = {"RUB", "USD", "EUR", "BTC"};
         int pairIndex = slot;
         int fromIdx = pairIndex / 3;
@@ -221,7 +207,7 @@ public class BankManager implements Listener {
 
         String from = currencies[fromIdx];
         String to = currencies[toIdx];
-        double amount = 1000; // фиксированная сумма для простоты
+        double amount = 1000;
 
         double balance = getBalance(player, from);
         if (balance < amount) {
@@ -238,7 +224,6 @@ public class BankManager implements Listener {
         player.closeInventory();
     }
 
-    // --- История транзакций ---
     private void showHistory(Player player) {
         List<BankTransaction> history = transactions.getOrDefault(player.getUniqueId(), new ArrayList<>());
         if (history.isEmpty()) {
@@ -262,7 +247,6 @@ public class BankManager implements Listener {
         player.openInventory(inv);
     }
 
-    // --- Вспомогательные методы ---
     private void addTransaction(Player player, String type, String currency, double amount, String desc) {
         BankTransaction t = new BankTransaction(type, currency, amount, desc, new Date());
         transactions.computeIfAbsent(player.getUniqueId(), k -> new ArrayList<>()).add(t);
@@ -308,7 +292,6 @@ public class BankManager implements Listener {
         return item;
     }
 
-    // --- Внутренний класс для транзакций ---
     private static class BankTransaction {
         private final String type;
         private final String currency;
