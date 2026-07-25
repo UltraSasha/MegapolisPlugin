@@ -15,20 +15,13 @@
     </properties>
 
     <repositories>
-        <!-- PaperMC -->
         <repository>
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
         </repository>
-        <!-- JitPack для Vault -->
         <repository>
             <id>jitpack.io</id>
             <url>https://jitpack.io</url>
-        </repository>
-        <!-- CodeMC – надёжный репозиторий для SkinRestorer и других плагинов -->
-        <repository>
-            <id>codemc</id>
-            <url>https://repo.codemc.io/repository/maven-public/</url>
         </repository>
     </repositories>
 
@@ -60,13 +53,7 @@
             <version>5.0.1</version>
             <optional>true</optional>
         </dependency>
-        <!-- SkinRestorer API – версия 15.2.0, доступна в CodeMC -->
-        <dependency>
-            <groupId>net.skinsrestorer</groupId>
-            <artifactId>api</artifactId>
-            <version>15.2.0</version>
-            <scope>provided</scope>
-        </dependency>
+        <!-- ❌ Зависимость SkinRestorer УДАЛЕНА — используем команды -->
     </dependencies>
 
     <build>
