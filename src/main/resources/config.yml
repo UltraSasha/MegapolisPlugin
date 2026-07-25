@@ -169,3 +169,99 @@ market_items:
     price: 25000
     amount: 1
     lore: "Ивентовое яблоко"
+
+locations:
+  # === СТОЯНКИ ===
+  parking_center:
+    type: parking
+    owner: none
+    display_name: "Центральная стоянка"
+    world: world
+    x: 100.5
+    y: 64.0
+    z: 200.5
+    radius: 10.0
+
+  parking_east:
+    type: parking
+    owner: none
+    display_name: "Восточная стоянка"
+    world: world
+    x: -150.0
+    y: 64.0
+    z: 50.0
+    radius: 10.0
+
+  parking_west:
+    type: parking
+    owner: none
+    display_name: "Западная стоянка"
+    world: world
+    x: 200.0
+    y: 64.0
+    z: -100.0
+    radius: 10.0
+
+  # === ПОЛИЦИЯ ===
+  police_department:
+    type: police
+    owner: government
+    display_name: "Департамент полиции"
+    world: world
+    x: 0.0
+    y: 64.0
+    z: 0.0
+    radius: 15.0
+
+  # === БИЗНЕСЫ ===
+  business_car_dealer:
+    type: business
+    owner: Deezercraft2024
+    display_name: "Автосалон Megapolis"
+    world: world
+    x: 50.0
+    y: 64.0
+    z: 50.0
+    radius: 8.0
+
+  business_bank:
+    type: business
+    owner: Deezercraft2024
+    display_name: "Центральный банк"
+    world: world
+    x: -50.0
+    y: 64.0
+    z: -50.0
+    radius: 8.0
+
+  # === ПОСТОМАТЫ ===
+  postomat_1:
+    type: postomat
+    owner: none
+    display_name: "Постомат №1"
+    world: world
+    x: 30.0
+    y: 64.0
+    z: 30.0
+    radius: 3.0
+
+  postomat_2:
+    type: postomat
+    owner: none
+    display_name: "Постомат №2"
+    world: world
+    x: -30.0
+    y: 64.0
+    z: -30.0
+    radius: 3.0
+
+  # === ТЮНИНГ-АТЕЛЬЕ ===
+  tuning_garage:
+    type: tuning
+    owner: none
+    display_name: "Тюнинг-ателье"
+    world: world
+    x: 80.0
+    y: 64.0
+    z: 80.0
+    radius: 10.0
