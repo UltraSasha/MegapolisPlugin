@@ -1,6 +1,7 @@
 package com.megapolis.core.modules;
 
 import com.megapolis.core.MegapolisPlugin;
+import com.megapolis.core.modules.admin.AdminPanel;
 import com.megapolis.core.modules.bank.BankManager;
 import com.megapolis.core.modules.business.BusinessManager;
 import com.megapolis.core.modules.cases.CaseManager;
@@ -36,6 +37,7 @@ public class ModuleManager {
     private MessengerManager messengerManager;
     private SkinManager skinManager;
     private LocationManager locationManager;
+    private AdminPanel adminPanel;
 
     public ModuleManager(MegapolisPlugin plugin) {
         this.plugin = plugin;
@@ -52,6 +54,7 @@ public class ModuleManager {
         this.messengerManager = new MessengerManager(plugin);
         this.skinManager = new SkinManager(plugin);
         this.locationManager = new LocationManager(plugin);
+        this.adminPanel = new AdminPanel(plugin);
         this.tabletManager = new TabletManager(plugin);
 
         PluginManager pm = Bukkit.getPluginManager();
@@ -74,12 +77,14 @@ public class ModuleManager {
     public MessengerManager getMessengerManager() { return messengerManager; }
     public SkinManager getSkinManager() { return skinManager; }
     public LocationManager getLocationManager() { return locationManager; }
+    public AdminPanel getAdminPanel() { return adminPanel; }
 
     public void disable() {
         vehicleManager.saveAll();
         bankManager.saveBalances();
         businessManager.saveAll();
         marketManager.saveAuctions();
+        adminPanel.saveChatHistory();
         plugin.getLogger().info("Все данные сохранены.");
     }
 }
