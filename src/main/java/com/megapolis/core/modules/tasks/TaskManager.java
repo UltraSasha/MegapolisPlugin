@@ -1,4 +1,4 @@
-package com.megapolis.core.modules.tasks;
+ package com.megapolis.core.modules.tasks;
 
 import com.megapolis.core.MegapolisPlugin;
 import org.bukkit.Bukkit;
@@ -27,7 +27,6 @@ public class TaskManager implements Listener {
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
-    // Генерация заданий для игрока
     public void generateDailyTasks(Player player) {
         UUID uuid = player.getUniqueId();
         List<Task> tasks = new ArrayList<>();
@@ -64,7 +63,6 @@ public class TaskManager implements Listener {
         return new Task(objective, reward, business);
     }
 
-    // Открыть GUI заданий
     public void openTasksGUI(Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, "§eЕжедневные задания");
         List<Task> tasks = playerTasks.get(player.getUniqueId());
@@ -92,8 +90,6 @@ public class TaskManager implements Listener {
         }
         player.openInventory(inv);
     }
-
-    // === Обработчики прогресса ===
 
     @EventHandler
     public void onEntityDeath(EntityDeathEvent event) {
@@ -131,7 +127,6 @@ public class TaskManager implements Listener {
         for (Task task : tasks) {
             if (task.isCompleted()) continue;
             String obj = task.getObjective();
-            // Проверяем, совпадает ли шаблон (убираем %d)
             String templateWithoutPlaceholder = objectiveTemplate.replace("%d", "").trim();
             if (obj.startsWith(templateWithoutPlaceholder)) {
                 int current = progress.getOrDefault(obj, 0);
@@ -155,7 +150,6 @@ public class TaskManager implements Listener {
         }
     }
 
-    // === Класс задания ===
     public static class Task {
         private final String objective;
         private final int reward;
@@ -176,7 +170,6 @@ public class TaskManager implements Listener {
         public void setCompleted(boolean completed) { this.completed = completed; }
 
         public int getRequiredAmount() {
-            // Парсим число из строки (упрощённо)
             String[] parts = objective.split(" ");
             for (String part : parts) {
                 try {
