@@ -8,6 +8,7 @@ import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 
@@ -61,10 +62,23 @@ public class LocationManager implements Listener {
     }
 
     @EventHandler
-    public void onPlayerMove(PlayerMoveEvent event) {
-        Player player = event.getPlayer();
-        UUID uuid = player.getUniqueId();
+    public void onPlayerJoin(PlayerJoinEvent event) {
+        // Проверяем зоны при входе игрока
+        Bukkit.getScheduler().runTaskLater(plugin, () -> checkPlayerZones(event.getPlayer()), 5L);
+    }
 
+    @EventHandler
+    public void onPlayerMove(PlayerMoveEvent event) {
+        if (event.getFrom().getBlockX() == event.getTo().getBlockX() &&
+            event.getFrom().getBlockZ() == event.getTo().getBlockZ() &&
+            event.getFrom().getBlockY() == event.getTo().getBlockY()) {
+            return;
+        }
+        checkPlayerZones(event.getPlayer());
+    }
+
+    private void checkPlayerZones(Player player) {
+        UUID uuid = player.getUniqueId();
         Set<String> activeZones = playerActiveZones.getOrDefault(uuid, new HashSet<>());
         Set<String> newActiveZones = new HashSet<>();
 
@@ -74,12 +88,14 @@ public class LocationManager implements Listener {
             }
         }
 
+        // Вход в новые зоны
         for (String zoneId : newActiveZones) {
             if (!activeZones.contains(zoneId)) {
                 onPlayerEnterZone(player, zoneId);
             }
         }
 
+        // Выход из зон
         for (String zoneId : activeZones) {
             if (!newActiveZones.contains(zoneId)) {
                 onPlayerExitZone(player, zoneId);
@@ -99,6 +115,11 @@ public class LocationManager implements Listener {
 
         player.sendMessage("§eВы вошли в зону: §6" + data.getDisplayName());
 
+        // Закрываем текущий инвентарь перед открытием нового
+        if (player.getOpenInventory() != null) {
+            player.closeInventory();
+        }
+
         switch (data.getType().toLowerCase()) {
             case "parking" -> plugin.getModuleManager().getVehicleManager().openParkingGUI(player, data);
             case "police" -> plugin.getModuleManager().getVehicleManager().openPoliceGUI(player, data);
@@ -113,6 +134,13 @@ public class LocationManager implements Listener {
         LocationData data = locations.get(zoneId);
         if (data == null) return;
         player.sendMessage("§eВы вышли из зоны: §6" + data.getDisplayName());
+        // Закрываем GUI, если оно открыто и принадлежит этой зоне
+        if (player.getOpenInventory() != null) {
+            String title = player.getOpenInventory().getTitle();
+            if (title.contains(data.getDisplayName())) {
+                player.closeInventory();
+            }
+        }
     }
 
     @EventHandler
