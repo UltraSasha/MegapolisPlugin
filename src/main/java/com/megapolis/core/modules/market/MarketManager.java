@@ -259,7 +259,7 @@ public class MarketManager implements Listener {
     }
 
     // === СОХРАНЕНИЕ И ЗАГРУЗКА ===
-    private void saveAuctions() {
+    public void saveAuctions() {
         plugin.getDataManager().save("auctions", activeAuctions);
     }
 
