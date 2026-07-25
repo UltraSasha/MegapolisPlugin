@@ -25,7 +25,7 @@ commands:
   tablet:
     description: Открыть планшет
     aliases: [pda, phone]
-  skin:
+  myskin:
     description: Применить скин по имени
   newskin:
     description: Создать предмет-скин с текущим скином
