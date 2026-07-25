@@ -22,13 +22,9 @@ public class TabletManager implements Listener {
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
-    /**
-     * Открывает главное меню планшета для игрока.
-     */
     public void openTablet(Player player) {
         Inventory inv = Bukkit.createInventory(null, 54, "§6Планшет");
 
-        // Кнопки разделов
         inv.setItem(0, createButton(Material.COMPASS, "§aБанк", "Баланс, кредиты, вклады"));
         inv.setItem(1, createButton(Material.MINECART, "§bАвторынок", "Купить машину"));
         inv.setItem(2, createButton(Material.CHEST, "§6Гос. магазин", "Купить у государства"));
@@ -59,6 +55,9 @@ public class TabletManager implements Listener {
         int slot = event.getRawSlot();
         if (slot < 0 || slot >= 54) return;
 
+        // Закрываем планшет перед открытием нового GUI
+        player.closeInventory();
+
         switch (slot) {
             case 0 -> plugin.getModuleManager().getBankManager().openBankGUI(player);
             case 1 -> plugin.getModuleManager().getVehicleManager().openAutoMarket(player);
@@ -70,6 +69,5 @@ public class TabletManager implements Listener {
             case 7 -> plugin.getModuleManager().getSkinManager().openSkinGUI(player);
             default -> {}
         }
-        player.closeInventory();
     }
 }
