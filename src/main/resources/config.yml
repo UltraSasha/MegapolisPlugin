@@ -114,3 +114,58 @@ exchange_rates:
   RUB: 0.01
   EUR: 1.2
   BTC: 10000.0
+
+gov_shop:
+  diamond:
+    material: DIAMOND
+    price: 100
+    amount: 1
+  iron_ingot:
+    material: IRON_INGOT
+    price: 50
+    amount: 1
+  gold_ingot:
+    material: GOLD_INGOT
+    price: 80
+    amount: 1
+  emerald:
+    material: EMERALD
+    price: 150
+    amount: 1
+  netherite_ingot:
+    material: NETHERITE_INGOT
+    price: 300
+    amount: 1
+  cooked_beef:
+    material: COOKED_BEEF
+    price: 10
+    amount: 8
+  bread:
+    material: BREAD
+    price: 5
+    amount: 16
+  arrow:
+    material: ARROW
+    price: 2
+    amount: 32
+  ender_pearl:
+    material: ENDER_PEARL
+    price: 500
+    amount: 1
+
+market_items:
+  firework_rocket:
+    material: FIREWORK_ROCKET
+    price: 1000
+    amount: 1
+    lore: "Ивентовый фейерверк"
+  totem_of_undying:
+    material: TOTEM_OF_UNDYING
+    price: 50000
+    amount: 1
+    lore: "Редкий ивентовый предмет"
+  enchanted_golden_apple:
+    material: ENCHANTED_GOLDEN_APPLE
+    price: 25000
+    amount: 1
+    lore: "Ивентовое яблоко"
