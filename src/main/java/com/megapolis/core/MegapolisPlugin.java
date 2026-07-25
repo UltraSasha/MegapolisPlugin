@@ -4,6 +4,8 @@ import com.megapolis.core.commands.*;
 import com.megapolis.core.data.DataManager;
 import com.megapolis.core.economy.EconomyManager;
 import com.megapolis.core.modules.ModuleManager;
+import com.megapolis.core.modules.admin.AdminPanel;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
@@ -26,7 +28,6 @@ public class MegapolisPlugin extends JavaPlugin implements Listener {
         this.economyManager = new EconomyManager(this);
         this.moduleManager = new ModuleManager(this);
 
-        // Регистрация команд
         getCommand("pts").setExecutor(new PTSCommand());
         getCommand("trunk").setExecutor(new TrunkCommand());
         getCommand("engine").setExecutor(new EngineCommand());
@@ -48,7 +49,6 @@ public class MegapolisPlugin extends JavaPlugin implements Listener {
         getLogger().info("MegapolisCore выгружен.");
     }
 
-    // Обработчик чата для админ-панели (ввод для банов, мута и т.д.)
     @EventHandler
     public void onPlayerChat(AsyncPlayerChatEvent event) {
         Player player = event.getPlayer();
