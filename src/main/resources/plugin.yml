@@ -23,6 +23,9 @@ commands:
     description: Применить скин по имени
   newskin:
     description: Создать предмет-скин с текущим скином
+  vehicle:
+    description: Создать транспорт
+    usage: /vehicle <CAR|MOTORCYCLE|BOAT|HELICOPTER>
   megapolis:
     description: Основная команда плагина
     aliases: [mp]
