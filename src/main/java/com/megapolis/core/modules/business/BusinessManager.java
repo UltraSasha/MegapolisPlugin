@@ -2,6 +2,7 @@ package com.megapolis.core.modules.business;
 
 import com.megapolis.core.MegapolisPlugin;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
@@ -16,13 +17,12 @@ public class BusinessManager implements Listener {
 
     private final MegapolisPlugin plugin;
     private final Map<UUID, Business> businesses = new HashMap<>();
-    private final Map<UUID, List<UUID>> businessEmployees = new HashMap<>(); // бизнес → список игроков
+    private final Map<UUID, List<UUID>> businessEmployees = new HashMap<>();
 
     public BusinessManager(MegapolisPlugin plugin) {
         this.plugin = plugin;
         Bukkit.getPluginManager().registerEvents(this, plugin);
         loadBusinesses();
-        // Создаём стартовую строительную компанию для Deezercraft2024
         createStartupCompany();
     }
 
@@ -35,30 +35,24 @@ public class BusinessManager implements Listener {
     }
 
     private void loadBusinesses() {
-        // Загрузка из data/businesses.json
         plugin.getLogger().info("Загрузка бизнесов...");
     }
 
     public void saveAll() {
-        // Сохранение в data/businesses.json
         plugin.getDataManager().save("businesses", businesses);
     }
 
-    // Создание бизнеса
     public boolean createBusiness(Player owner, String name, String type, double initialCapital) {
         UUID id = UUID.randomUUID();
         Business business = new Business(id, owner.getUniqueId(), name, type, initialCapital);
         businesses.put(id, business);
-        // Добавляем владельца как сотрудника
         businessEmployees.computeIfAbsent(id, k -> new ArrayList<>()).add(owner.getUniqueId());
         owner.sendMessage("§aБизнес " + name + " создан! Тип: " + type);
         return true;
     }
 
-    // Получение бизнеса по ID
     public Business getBusiness(UUID id) { return businesses.get(id); }
 
-    // Получение бизнеса по владельцу
     public Business getBusinessByOwner(Player player) {
         for (Business b : businesses.values()) {
             if (b.getOwner().equals(player.getUniqueId())) return b;
@@ -66,7 +60,6 @@ public class BusinessManager implements Listener {
         return null;
     }
 
-    // === Управление казной ===
     public void depositTreasury(Business business, double amount) {
         business.setTreasury(business.getTreasury() + amount);
     }
@@ -86,7 +79,6 @@ public class BusinessManager implements Listener {
         return true;
     }
 
-    // === Сотрудники ===
     public void addEmployee(Business business, Player employee, Player owner) {
         if (!business.getOwner().equals(owner.getUniqueId())) {
             owner.sendMessage("§cТолько владелец может нанимать сотрудников.");
@@ -109,29 +101,23 @@ public class BusinessManager implements Listener {
         return businessEmployees.getOrDefault(business.getId(), new ArrayList<>()).contains(player.getUniqueId());
     }
 
-    // === Аукцион (выставление бизнеса) ===
     public void auctionBusiness(Business business) {
         if (business.isBankrupt()) {
-            // Передаём бизнес новому владельцу (упрощённо - первому, кто заплатит)
-            // В реальности здесь будет аукцион
             plugin.getLogger().info("Бизнес " + business.getName() + " выставлен на аукцион.");
         }
     }
 
-    // Проверка банкротства (вызывать при изменениях казны)
     public void checkBankruptcy(Business business) {
         if (business.getTreasury() < 0 && !business.isBankrupt()) {
             business.setBankrupt(true);
-            // Запускаем таймер на 72 часа
             Bukkit.getScheduler().runTaskLater(plugin, () -> {
                 if (business.getTreasury() < 0) {
                     auctionBusiness(business);
                 }
-            }, 72 * 60 * 60 * 20); // 72 часа в тиках
+            }, 72 * 60 * 60 * 20);
         }
     }
 
-    // === GUI для управления бизнесом ===
     public void openBusinessGUI(Player player) {
         Business business = getBusinessByOwner(player);
         if (business == null) {
@@ -158,13 +144,9 @@ public class BusinessManager implements Listener {
         if (business == null) return;
 
         if (slot == 2) {
-            // Снятие денег (упрощённо)
             player.closeInventory();
-            // Запрашиваем сумму через чат (заглушку заменяем на диалог)
             player.sendMessage("§eВведите сумму для снятия в чат (число).");
-            // В реальном коде здесь будет ожидание ввода
         } else if (slot == 3) {
-            // Управление сотрудниками
             openEmployeesGUI(player, business);
         } else if (slot == 4) {
             player.closeInventory();
@@ -230,7 +212,6 @@ public class BusinessManager implements Listener {
         return item;
     }
 
-    // === Класс бизнеса ===
     public static class Business {
         private final UUID id;
         private final UUID owner;
