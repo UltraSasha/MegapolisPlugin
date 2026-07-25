@@ -9,24 +9,14 @@ import org.bukkit.entity.Player;
 
 public class VehicleSpawnCommand implements CommandExecutor {
     @Override
-    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage("§cТолько для игроков.");
-            return true;
-        }
-        if (args.length < 1) {
-            player.sendMessage("§eИспользование: /vehicle <тип>");
-            player.sendMessage("§eТипы: CAR, MOTORCYCLE, BOAT, HELICOPTER");
-            return true;
-        }
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!(sender instanceof Player player)) { sender.sendMessage("§cТолько для игроков."); return true; }
+        if (args.length < 1) { player.sendMessage("§eИспользование: /vehicle <CAR|MOTORCYCLE|BOAT|HELICOPTER>"); return true; }
         try {
             VehicleType type = VehicleType.valueOf(args[0].toUpperCase());
-            MegapolisPlugin.getInstance().getModuleManager().getVehicleManager()
-                    .spawnVehicle(player, type, player.getLocation());
+            MegapolisPlugin.getInstance().getModuleManager().getVehicleManager().spawnVehicle(player, type, player.getLocation());
             player.sendMessage("§aМашина создана!");
-        } catch (IllegalArgumentException e) {
-            player.sendMessage("§cНеизвестный тип транспорта.");
-        }
+        } catch (IllegalArgumentException e) { player.sendMessage("§cНеизвестный тип."); }
         return true;
     }
 }

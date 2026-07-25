@@ -1,13 +1,15 @@
 package com.megapolis.core.modules.market;
 
 import com.megapolis.core.MegapolisPlugin;
+import com.megapolis.core.modules.transport.Vehicle;
+import com.megapolis.core.modules.transport.VehicleType;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.player.PlayerChatEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -19,12 +21,9 @@ public class MarketManager implements Listener {
 
     private final MegapolisPlugin plugin;
 
-    // Аукцион предметов
     private final Map<String, AuctionLot> activeAuctions = new ConcurrentHashMap<>();
-    private final Map<UUID, ItemStack> sellItemBuffer = new HashMap<>(); // временный буфер для выставления
-
-    // Аукцион машин (от игроков)
-    private final Map<UUID, VehicleAuctionLot> vehicleAuctions = new HashMap<>(); // vehicleId → лот
+    private final Map<UUID, ItemStack> sellItemBuffer = new HashMap<>();
+    private final Map<UUID, VehicleAuctionLot> vehicleAuctions = new HashMap<>();
 
     public MarketManager(MegapolisPlugin plugin) {
         this.plugin = plugin;
@@ -33,14 +32,8 @@ public class MarketManager implements Listener {
         loadVehicleAuctions();
     }
 
-    // ============================================================
-    // АУКЦИОН ПРЕДМЕТОВ (обычный)
-    // ============================================================
-
     public void openMarketGUI(Player player) {
         Inventory inv = Bukkit.createInventory(null, 54, "§dАукцион");
-
-        // Кнопка "Выставить предмет"
         ItemStack sellBtn = new ItemStack(Material.GOLD_INGOT);
         ItemMeta sellMeta = sellBtn.getItemMeta();
         sellMeta.setDisplayName("§aВыставить предмет");
@@ -48,7 +41,6 @@ public class MarketManager implements Listener {
         sellBtn.setItemMeta(sellMeta);
         inv.setItem(0, sellBtn);
 
-        // Кнопка "Мои лоты"
         ItemStack myBtn = new ItemStack(Material.BOOK);
         ItemMeta myMeta = myBtn.getItemMeta();
         myMeta.setDisplayName("§6Мои лоты");
@@ -56,7 +48,6 @@ public class MarketManager implements Listener {
         myBtn.setItemMeta(myMeta);
         inv.setItem(1, myBtn);
 
-        // Заполняем остальные слоты активными лотами
         int slot = 9;
         for (AuctionLot lot : activeAuctions.values()) {
             if (slot >= 53) break;
@@ -72,62 +63,44 @@ public class MarketManager implements Listener {
             inv.setItem(slot, display);
             slot++;
         }
-
-        // Кнопка закрытия
-        ItemStack close = new ItemStack(Material.BARRIER);
-        ItemMeta closeMeta = close.getItemMeta();
-        closeMeta.setDisplayName("§cЗакрыть");
-        close.setItemMeta(closeMeta);
-        inv.setItem(53, close);
-
+        inv.setItem(53, createButton(Material.BARRIER, "§cЗакрыть", ""));
         player.openInventory(inv);
     }
 
-    // --- Выставление предмета ---
     public void startSellProcess(Player player) {
         ItemStack item = player.getInventory().getItemInMainHand();
         if (item == null || item.getType() == Material.AIR) {
-            player.sendMessage("§cДержите в руке предмет, который хотите продать.");
+            player.sendMessage("§cДержите в руке предмет для продажи.");
             return;
         }
         sellItemBuffer.put(player.getUniqueId(), item.clone());
         player.closeInventory();
-        player.sendMessage("§eВведите цену в чат (только число) или напишите 'отмена' для отмены.");
-        // Ожидаем ввод цены в чате (обработчик ниже)
+        player.sendMessage("§eВведите цену в чат (число) или 'отмена' для отмены.");
     }
 
     public void handlePriceInput(Player player, String message) {
         if (message.equalsIgnoreCase("отмена")) {
             sellItemBuffer.remove(player.getUniqueId());
-            player.sendMessage("§cВы отменили выставление предмета.");
+            player.sendMessage("§cОтменено.");
             return;
         }
         try {
             double price = Double.parseDouble(message);
-            if (price <= 0) {
-                player.sendMessage("§cЦена должна быть больше 0.");
-                return;
-            }
+            if (price <= 0) { player.sendMessage("§cЦена должна быть > 0."); return; }
             ItemStack item = sellItemBuffer.remove(player.getUniqueId());
-            if (item == null) {
-                player.sendMessage("§cОшибка: предмет не найден. Попробуйте снова.");
-                return;
-            }
-            // Убираем предмет из рук игрока
+            if (item == null) { player.sendMessage("§cОшибка."); return; }
             player.getInventory().setItemInMainHand(null);
-            // Создаём лот
             String auctionId = UUID.randomUUID().toString();
             AuctionLot lot = new AuctionLot(auctionId, player.getUniqueId(), item, price, System.currentTimeMillis());
             activeAuctions.put(auctionId, lot);
             saveAuctions();
-            player.sendMessage("§aПредмет выставлен на аукцион за " + price + " монет!");
-            Bukkit.broadcastMessage("§6[Аукцион] §e" + player.getName() + " §fвыставил §e" + item.getType().name() + " §fза §a" + price + " §fмонет.");
+            player.sendMessage("§aПредмет выставлен за " + price + " монет.");
+            Bukkit.broadcastMessage("§6[Аукцион] §e" + player.getName() + " §fвыставил §e" + item.getType().name() + " §fза §a" + price + " монет.");
         } catch (NumberFormatException e) {
             player.sendMessage("§cВведите корректное число.");
         }
     }
 
-    // --- Обработка кликов в аукционе ---
     @EventHandler
     public void onAuctionClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
@@ -135,68 +108,44 @@ public class MarketManager implements Listener {
         event.setCancelled(true);
 
         int slot = event.getRawSlot();
-        if (slot == 0) {
-            startSellProcess(player);
-            player.closeInventory();
-            return;
-        }
-        if (slot == 1) {
-            openMyLots(player);
-            return;
-        }
-        if (slot == 53) {
-            player.closeInventory();
-            return;
-        }
+        if (slot == 0) { startSellProcess(player); player.closeInventory(); return; }
+        if (slot == 1) { openMyLots(player); return; }
+        if (slot == 53) { player.closeInventory(); return; }
         if (slot >= 9 && slot < 53) {
             int index = slot - 9;
             if (index >= activeAuctions.size()) return;
             String auctionId = (String) activeAuctions.keySet().toArray()[index];
             AuctionLot lot = activeAuctions.get(auctionId);
             if (lot == null) return;
-
             if (lot.getSeller().equals(player.getUniqueId())) {
-                player.sendMessage("§cВы не можете купить свой собственный лот.");
+                player.sendMessage("§cНельзя купить свой лот.");
                 return;
             }
-
             double balance = plugin.getEconomyManager().getBalance(player);
             if (event.isShiftClick()) {
-                // Shift+ЛКМ — ставка (торг) — покупаем по цене + 10%
                 double bidPrice = lot.getPrice() * 1.1;
-                if (balance < bidPrice) {
-                    player.sendMessage("§cНедостаточно средств для ставки. Нужно: " + bidPrice);
-                    return;
-                }
+                if (balance < bidPrice) { player.sendMessage("§cНедостаточно средств."); return; }
                 plugin.getEconomyManager().withdraw(player, bidPrice);
                 plugin.getEconomyManager().deposit(Bukkit.getOfflinePlayer(lot.getSeller()), bidPrice);
                 player.getInventory().addItem(lot.getItem());
                 activeAuctions.remove(auctionId);
                 saveAuctions();
-                player.sendMessage("§aВы выиграли торг и купили предмет за " + bidPrice + " монет!");
+                player.sendMessage("§aВы купили за " + bidPrice + " монет.");
                 player.closeInventory();
             } else {
-                // ЛКМ — мгновенная покупка
-                if (balance < lot.getPrice()) {
-                    player.sendMessage("§cНедостаточно средств. Нужно: " + lot.getPrice());
-                    return;
-                }
-                if (player.getInventory().firstEmpty() == -1) {
-                    player.sendMessage("§cВаш инвентарь полон!");
-                    return;
-                }
+                if (balance < lot.getPrice()) { player.sendMessage("§cНедостаточно средств."); return; }
+                if (player.getInventory().firstEmpty() == -1) { player.sendMessage("§cИнвентарь полон."); return; }
                 plugin.getEconomyManager().withdraw(player, lot.getPrice());
                 plugin.getEconomyManager().deposit(Bukkit.getOfflinePlayer(lot.getSeller()), lot.getPrice());
                 player.getInventory().addItem(lot.getItem());
                 activeAuctions.remove(auctionId);
                 saveAuctions();
-                player.sendMessage("§aВы купили предмет за " + lot.getPrice() + " монет!");
+                player.sendMessage("§aВы купили за " + lot.getPrice() + " монет.");
                 player.closeInventory();
             }
         }
     }
 
-    // --- Мои лоты ---
     private void openMyLots(Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, "§6Мои лоты");
         int slot = 0;
@@ -206,7 +155,7 @@ public class MarketManager implements Listener {
                 ItemMeta meta = display.getItemMeta();
                 List<String> lore = meta.getLore() != null ? meta.getLore() : new ArrayList<>();
                 lore.add("§7Цена: §a" + lot.getPrice() + " монет");
-                lore.add("§cНажмите, чтобы снять с продажи");
+                lore.add("§cНажмите, чтобы снять");
                 meta.setLore(lore);
                 display.setItemMeta(meta);
                 inv.setItem(slot, display);
@@ -221,17 +170,13 @@ public class MarketManager implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         if (!event.getView().getTitle().equals("§6Мои лоты")) return;
         event.setCancelled(true);
-
         int slot = event.getRawSlot();
         if (slot < 0 || slot >= activeAuctions.size()) return;
         int index = 0;
         String targetId = null;
         for (AuctionLot lot : activeAuctions.values()) {
             if (lot.getSeller().equals(player.getUniqueId())) {
-                if (index == slot) {
-                    targetId = lot.getAuctionId();
-                    break;
-                }
+                if (index == slot) { targetId = lot.getAuctionId(); break; }
                 index++;
             }
         }
@@ -240,14 +185,10 @@ public class MarketManager implements Listener {
         if (lot != null) {
             player.getInventory().addItem(lot.getItem());
             saveAuctions();
-            player.sendMessage("§aВы сняли лот с продажи.");
+            player.sendMessage("§aЛот снят.");
             player.closeInventory();
         }
     }
-
-    // ============================================================
-    // АУКЦИОН МАШИН (от игроков)
-    // ============================================================
 
     public void openVehicleAuction(Player player) {
         Inventory inv = Bukkit.createInventory(null, 54, "§6Авторынок (игроки)");
@@ -258,13 +199,13 @@ public class MarketManager implements Listener {
             ItemMeta meta = display.getItemMeta();
             meta.setCustomModelData(lot.getModelId());
             meta.setDisplayName("§6" + lot.getVehicleName());
-            List<String> lore = new ArrayList<>();
-            lore.add("§7Продавец: §f" + Bukkit.getOfflinePlayer(lot.getSeller()).getName());
-            lore.add("§7Цена: §a" + lot.getPrice() + " монет");
-            lore.add("§7Здоровье: §f" + lot.getHealth() + "%");
-            lore.add("§7Топливо: §f" + lot.getFuel() + "%");
-            lore.add("§eНажмите для покупки");
-            meta.setLore(lore);
+            meta.setLore(Arrays.asList(
+                    "§7Продавец: §f" + Bukkit.getOfflinePlayer(lot.getSeller()).getName(),
+                    "§7Цена: §a" + lot.getPrice() + " монет",
+                    "§7Здоровье: §f" + lot.getHealth() + "%",
+                    "§7Топливо: §f" + lot.getFuel() + "%",
+                    "§eНажмите для покупки"
+            ));
             display.setItemMeta(meta);
             inv.setItem(slot, display);
             slot++;
@@ -273,17 +214,10 @@ public class MarketManager implements Listener {
         player.openInventory(inv);
     }
 
-    // Выставление машины на аукцион (из стоянки)
     public void listVehicleForAuction(Player player, UUID vehicleId, double price) {
         Vehicle vehicle = plugin.getModuleManager().getVehicleManager().getVehicleById(vehicleId);
-        if (vehicle == null) {
-            player.sendMessage("§cМашина не найдена.");
-            return;
-        }
-        if (!vehicle.getOwner().equals(player.getUniqueId())) {
-            player.sendMessage("§cВы не владелец этой машины.");
-            return;
-        }
+        if (vehicle == null) { player.sendMessage("§cМашина не найдена."); return; }
+        if (!vehicle.getOwner().equals(player.getUniqueId())) { player.sendMessage("§cВы не владелец."); return; }
         VehicleAuctionLot lot = new VehicleAuctionLot(
                 vehicleId,
                 player.getUniqueId(),
@@ -294,17 +228,14 @@ public class MarketManager implements Listener {
                 vehicle.getFuel()
         );
         vehicleAuctions.put(vehicleId, lot);
-        // Удаляем машину из мира (если она заспавнена)
         Entity entity = Bukkit.getEntity(vehicleId);
         if (entity != null) entity.remove();
-        // Удаляем из VehicleManager
         plugin.getModuleManager().getVehicleManager().unregisterVehicle(vehicleId);
         saveVehicleAuctions();
         player.sendMessage("§aМашина выставлена на аукцион за " + price + " монет.");
-        Bukkit.broadcastMessage("§6[Авторынок] §e" + player.getName() + " §fвыставил машину §e" + lot.getVehicleName() + " §fза §a" + price + " §fмонет.");
+        Bukkit.broadcastMessage("§6[Авторынок] §e" + player.getName() + " §fвыставил машину §e" + lot.getVehicleName() + " §fза §a" + price + " монет.");
     }
 
-    // Покупка машины на аукционе
     @EventHandler
     public void onVehicleAuctionClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
@@ -313,124 +244,35 @@ public class MarketManager implements Listener {
         int slot = event.getRawSlot();
         if (slot == 53) { player.closeInventory(); return; }
         if (slot < 0 || slot >= vehicleAuctions.size()) return;
-
         UUID vehicleId = (UUID) vehicleAuctions.keySet().toArray()[slot];
         VehicleAuctionLot lot = vehicleAuctions.get(vehicleId);
         if (lot == null) return;
-
-        if (lot.getSeller().equals(player.getUniqueId())) {
-            player.sendMessage("§cВы не можете купить свою машину.");
-            return;
-        }
-
+        if (lot.getSeller().equals(player.getUniqueId())) { player.sendMessage("§cНельзя купить свою машину."); return; }
         double balance = plugin.getEconomyManager().getBalance(player);
-        if (balance < lot.getPrice()) {
-            player.sendMessage("§cНедостаточно денег! Нужно: " + lot.getPrice());
-            return;
-        }
-
-        // Создаём машину для покупателя
+        if (balance < lot.getPrice()) { player.sendMessage("§cНедостаточно денег!"); return; }
         VehicleType type;
         try {
             type = VehicleType.valueOf(lot.getVehicleName().toUpperCase().replace(" ", "_"));
-        } catch (IllegalArgumentException e) {
-            type = VehicleType.CAR;
-        }
+        } catch (IllegalArgumentException e) { type = VehicleType.CAR; }
         Vehicle newVehicle = plugin.getModuleManager().getVehicleManager().spawnVehicle(player, type, player.getLocation());
-        if (newVehicle == null) {
-            player.sendMessage("§cНе удалось создать машину.");
-            return;
-        }
-        // Передаём деньги продавцу
+        if (newVehicle == null) { player.sendMessage("§cОшибка создания машины."); return; }
         plugin.getEconomyManager().withdraw(player, lot.getPrice());
         plugin.getEconomyManager().deposit(Bukkit.getOfflinePlayer(lot.getSeller()), lot.getPrice());
-
         vehicleAuctions.remove(vehicleId);
         saveVehicleAuctions();
-        player.sendMessage("§aВы купили машину " + lot.getVehicleName() + " за " + lot.getPrice() + " монет!");
+        player.sendMessage("§aВы купили " + lot.getVehicleName() + " за " + lot.getPrice() + " монет.");
         player.closeInventory();
     }
 
-    // ============================================================
-    // СОХРАНЕНИЕ/ЗАГРУЗКА
-    // ============================================================
-
-    public void saveAuctions() {
-        plugin.getDataManager().save("auctions", activeAuctions);
-    }
-
+    public void saveAuctions() { plugin.getDataManager().save("auctions", activeAuctions); }
     private void loadAuctions() {
         Map<String, AuctionLot> loaded = plugin.getDataManager().load("auctions", Map.class);
-        if (loaded != null) {
-            activeAuctions.putAll(loaded);
-        }
-        plugin.getLogger().info("Загружено " + activeAuctions.size() + " лотов.");
+        if (loaded != null) activeAuctions.putAll(loaded);
     }
-
-    private void saveVehicleAuctions() {
-        plugin.getDataManager().save("vehicle_auctions", vehicleAuctions);
-    }
-
+    private void saveVehicleAuctions() { plugin.getDataManager().save("vehicle_auctions", vehicleAuctions); }
     private void loadVehicleAuctions() {
         Map<UUID, VehicleAuctionLot> loaded = plugin.getDataManager().load("vehicle_auctions", Map.class);
-        if (loaded != null) {
-            vehicleAuctions.putAll(loaded);
-        }
-        plugin.getLogger().info("Загружено " + vehicleAuctions.size() + " лотов машин.");
-    }
-
-    // ============================================================
-    // ВНУТРЕННИЕ КЛАССЫ
-    // ============================================================
-
-    public static class AuctionLot {
-        private final String auctionId;
-        private final UUID seller;
-        private final ItemStack item;
-        private final double price;
-        private final long timestamp;
-
-        public AuctionLot(String auctionId, UUID seller, ItemStack item, double price, long timestamp) {
-            this.auctionId = auctionId;
-            this.seller = seller;
-            this.item = item;
-            this.price = price;
-            this.timestamp = timestamp;
-        }
-
-        public String getAuctionId() { return auctionId; }
-        public UUID getSeller() { return seller; }
-        public ItemStack getItem() { return item; }
-        public double getPrice() { return price; }
-        public long getTimestamp() { return timestamp; }
-    }
-
-    public static class VehicleAuctionLot {
-        private final UUID vehicleId;
-        private final UUID seller;
-        private final String vehicleName;
-        private final int modelId;
-        private final double price;
-        private final int health;
-        private final int fuel;
-
-        public VehicleAuctionLot(UUID vehicleId, UUID seller, String vehicleName, int modelId, double price, int health, int fuel) {
-            this.vehicleId = vehicleId;
-            this.seller = seller;
-            this.vehicleName = vehicleName;
-            this.modelId = modelId;
-            this.price = price;
-            this.health = health;
-            this.fuel = fuel;
-        }
-
-        public UUID getVehicleId() { return vehicleId; }
-        public UUID getSeller() { return seller; }
-        public String getVehicleName() { return vehicleName; }
-        public int getModelId() { return modelId; }
-        public double getPrice() { return price; }
-        public int getHealth() { return health; }
-        public int getFuel() { return fuel; }
+        if (loaded != null) vehicleAuctions.putAll(loaded);
     }
 
     private ItemStack createButton(Material mat, String name, String lore) {
@@ -441,4 +283,30 @@ public class MarketManager implements Listener {
         item.setItemMeta(meta);
         return item;
     }
-                           }
+
+    public static class AuctionLot {
+        private final String auctionId; private final UUID seller; private final ItemStack item; private final double price; private final long timestamp;
+        public AuctionLot(String auctionId, UUID seller, ItemStack item, double price, long timestamp) {
+            this.auctionId = auctionId; this.seller = seller; this.item = item; this.price = price; this.timestamp = timestamp;
+        }
+        public String getAuctionId() { return auctionId; }
+        public UUID getSeller() { return seller; }
+        public ItemStack getItem() { return item; }
+        public double getPrice() { return price; }
+        public long getTimestamp() { return timestamp; }
+    }
+
+    public static class VehicleAuctionLot {
+        private final UUID vehicleId; private final UUID seller; private final String vehicleName; private final int modelId; private final double price; private final int health; private final int fuel;
+        public VehicleAuctionLot(UUID vehicleId, UUID seller, String vehicleName, int modelId, double price, int health, int fuel) {
+            this.vehicleId = vehicleId; this.seller = seller; this.vehicleName = vehicleName; this.modelId = modelId; this.price = price; this.health = health; this.fuel = fuel;
+        }
+        public UUID getVehicleId() { return vehicleId; }
+        public UUID getSeller() { return seller; }
+        public String getVehicleName() { return vehicleName; }
+        public int getModelId() { return modelId; }
+        public double getPrice() { return price; }
+        public int getHealth() { return health; }
+        public int getFuel() { return fuel; }
+    }
+}

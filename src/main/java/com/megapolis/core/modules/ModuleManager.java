@@ -21,9 +21,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.plugin.PluginManager;
 
 public class ModuleManager {
-
     private final MegapolisPlugin plugin;
-
     private VehicleManager vehicleManager;
     private CaseManager caseManager;
     private TransformerManager transformerManager;
@@ -41,7 +39,6 @@ public class ModuleManager {
 
     public ModuleManager(MegapolisPlugin plugin) {
         this.plugin = plugin;
-
         this.vehicleManager = new VehicleManager(plugin);
         this.caseManager = new CaseManager(plugin);
         this.transformerManager = new TransformerManager(plugin);
@@ -60,7 +57,6 @@ public class ModuleManager {
         PluginManager pm = Bukkit.getPluginManager();
         pm.registerEvents(new VehicleListener(vehicleManager), plugin);
         pm.registerEvents(new TransformerListener(transformerManager), plugin);
-
         plugin.getLogger().info("Все модули успешно загружены.");
     }
 

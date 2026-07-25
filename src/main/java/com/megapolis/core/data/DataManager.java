@@ -3,16 +3,13 @@ package com.megapolis.core.data;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.megapolis.core.MegapolisPlugin;
-
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 public class DataManager {
-
     private final MegapolisPlugin plugin;
     private final Gson gson;
     private final boolean useMySQL;
@@ -24,13 +21,8 @@ public class DataManager {
         this.gson = new GsonBuilder().setPrettyPrinting().create();
         this.dataFolder = plugin.getDataFolder().toPath().resolve("data");
         this.useMySQL = plugin.getConfig().getBoolean("storage.mysql.enabled", false);
-
         if (!useMySQL) {
-            try {
-                Files.createDirectories(dataFolder);
-            } catch (IOException e) {
-                plugin.getLogger().severe("Не удалось создать папку данных: " + e.getMessage());
-            }
+            try { Files.createDirectories(dataFolder); } catch (IOException e) { plugin.getLogger().severe("Не удалось создать папку данных: " + e.getMessage()); }
         } else {
             plugin.getLogger().info("Режим MySQL включен (реализация будет добавлена)");
         }

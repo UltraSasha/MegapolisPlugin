@@ -1,27 +1,14 @@
 package com.megapolis.core.modules.admin;
 
 import com.megapolis.core.MegapolisPlugin;
-import org.bukkit.Bukkit;
-import org.bukkit.Material;
-import org.bukkit.OfflinePlayer;
-import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.Bukkit; import org.bukkit.Material; import org.bukkit.OfflinePlayer; import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler; import org.bukkit.event.Listener; import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.Inventory; import org.bukkit.inventory.ItemStack; import org.bukkit.inventory.meta.ItemMeta;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.*;
-import java.util.stream.Collectors;
+import java.io.BufferedReader; import java.io.File; import java.io.FileReader; import java.io.IOException;
+import java.text.SimpleDateFormat; import java.util.*; import java.util.stream.Collectors;
 
 public class AdminPanel implements Listener {
-
     private final MegapolisPlugin plugin;
     private final Map<UUID, List<ChatMessage>> chatHistory = new HashMap<>();
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("HH:mm:ss");
@@ -43,9 +30,7 @@ public class AdminPanel implements Listener {
         }
     }
 
-    public void saveChatHistory() {
-        plugin.getDataManager().save("chat_history", chatHistory);
-    }
+    public void saveChatHistory() { plugin.getDataManager().save("chat_history", chatHistory); }
 
     public void addChatMessage(Player player, String message) {
         ChatMessage msg = new ChatMessage(player.getName(), message, System.currentTimeMillis());
@@ -55,9 +40,7 @@ public class AdminPanel implements Listener {
         saveChatHistory();
     }
 
-    public boolean isAwaitingInput(Player player) {
-        return pendingAction.containsKey(player.getUniqueId());
-    }
+    public boolean isAwaitingInput(Player player) { return pendingAction.containsKey(player.getUniqueId()); }
 
     public void processAdminInput(Player player, String message) {
         String action = pendingAction.get(player.getUniqueId());
@@ -73,18 +56,15 @@ public class AdminPanel implements Listener {
     }
 
     public void openAdminPanel(Player player) {
-        if (!player.hasPermission("megapolis.admin")) {
-            player.sendMessage("§cУ вас нет прав на использование этой команды.");
-            return;
-        }
+        if (!player.hasPermission("megapolis.admin")) { player.sendMessage("§cНет прав."); return; }
         Inventory inv = Bukkit.createInventory(null, 27, "§cАдмин-панель");
-        inv.setItem(0, createButton(Material.BOOK, "§6Консоль", "Посмотреть последние логи"));
-        inv.setItem(1, createButton(Material.PAPER, "§6История чата", "Посмотреть сообщения игроков"));
+        inv.setItem(0, createButton(Material.BOOK, "§6Консоль", "Посмотреть логи"));
+        inv.setItem(1, createButton(Material.PAPER, "§6История чата", "Посмотреть сообщения"));
         inv.setItem(2, createButton(Material.BARRIER, "§cБан", "Забанить игрока"));
         inv.setItem(3, createButton(Material.NAME_TAG, "§6Мут", "Замутить игрока"));
         inv.setItem(4, createButton(Material.IRON_BARS, "§6Тюрьма", "Отправить в тюрьму"));
-        inv.setItem(5, createButton(Material.COMPASS, "§6Телепорт", "Телепортироваться к игроку"));
-        inv.setItem(6, createButton(Material.GOLD_INGOT, "§6Выдать деньги", "Выдать валюту игроку"));
+        inv.setItem(5, createButton(Material.COMPASS, "§6Телепорт", "Телепортироваться"));
+        inv.setItem(6, createButton(Material.GOLD_INGOT, "§6Выдать деньги", "Выдать валюту"));
         inv.setItem(26, createButton(Material.BARRIER, "§cЗакрыть", ""));
         player.openInventory(inv);
     }
@@ -109,7 +89,7 @@ public class AdminPanel implements Listener {
 
     private void showConsole(Player player) {
         List<String> logs = getLastConsoleLogs(30);
-        Inventory inv = Bukkit.createInventory(null, 54, "§6Консоль (последние логи)");
+        Inventory inv = Bukkit.createInventory(null, 54, "§6Консоль (логи)");
         int slot = 0;
         for (String line : logs) {
             ItemStack item = new ItemStack(Material.PAPER);
@@ -122,37 +102,27 @@ public class AdminPanel implements Listener {
             slot++;
             if (slot >= 53) break;
         }
-        inv.setItem(53, createButton(Material.BARRIER, "§cНазад", "Вернуться в админ-панель"));
+        inv.setItem(53, createButton(Material.BARRIER, "§cНазад", ""));
         player.openInventory(inv);
     }
 
     @EventHandler
     public void onConsoleClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)) return;
-        if (!event.getView().getTitle().equals("§6Консоль (последние логи)")) return;
+        if (!event.getView().getTitle().equals("§6Консоль (логи)")) return;
         event.setCancelled(true);
-        if (event.getRawSlot() == 53) {
-            player.closeInventory();
-            openAdminPanel(player);
-        }
+        if (event.getRawSlot() == 53) { player.closeInventory(); openAdminPanel(player); }
     }
 
     private List<String> getLastConsoleLogs(int lines) {
         File logFile = new File("logs/latest.log");
         List<String> logs = new ArrayList<>();
-        if (!logFile.exists()) {
-            logs.add("§cФайл логов не найден.");
-            return logs;
-        }
+        if (!logFile.exists()) { logs.add("§cФайл логов не найден."); return logs; }
         try (BufferedReader reader = new BufferedReader(new FileReader(logFile))) {
             List<String> allLines = reader.lines().collect(Collectors.toList());
             int start = Math.max(0, allLines.size() - lines);
-            for (int i = start; i < allLines.size(); i++) {
-                logs.add(allLines.get(i));
-            }
-        } catch (IOException e) {
-            logs.add("§cОшибка чтения логов: " + e.getMessage());
-        }
+            for (int i = start; i < allLines.size(); i++) logs.add(allLines.get(i));
+        } catch (IOException e) { logs.add("§cОшибка чтения логов: " + e.getMessage()); }
         return logs;
     }
 
@@ -175,7 +145,7 @@ public class AdminPanel implements Listener {
             slot++;
             if (slot >= 53) break;
         }
-        inv.setItem(53, createButton(Material.BARRIER, "§cНазад", "Вернуться в админ-панель"));
+        inv.setItem(53, createButton(Material.BARRIER, "§cНазад", ""));
         player.openInventory(inv);
     }
 
@@ -184,20 +154,17 @@ public class AdminPanel implements Listener {
         if (!(event.getWhoClicked() instanceof Player player)) return;
         if (!event.getView().getTitle().equals("§6История чата")) return;
         event.setCancelled(true);
-        if (event.getRawSlot() == 53) {
-            player.closeInventory();
-            openAdminPanel(player);
-        }
+        if (event.getRawSlot() == 53) { player.closeInventory(); openAdminPanel(player); }
     }
 
     private void startBanProcess(Player player) {
         player.closeInventory();
-        player.sendMessage("§eВведите имя игрока для бана (или 'отмена' для отмены):");
+        player.sendMessage("§eВведите имя игрока для бана (или 'отмена'):");
         pendingAction.put(player.getUniqueId(), "ban");
     }
 
     private void handleBanInput(Player admin, String input) {
-        if (input.equalsIgnoreCase("отмена")) { pendingAction.remove(admin.getUniqueId()); admin.sendMessage("§cДействие отменено."); return; }
+        if (input.equalsIgnoreCase("отмена")) { pendingAction.remove(admin.getUniqueId()); admin.sendMessage("§cОтменено."); return; }
         OfflinePlayer target = Bukkit.getOfflinePlayer(input);
         if (target == null || !target.hasPlayedBefore()) { admin.sendMessage("§cИгрок не найден."); return; }
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "ban " + target.getName() + " Нарушение правил");
@@ -212,7 +179,7 @@ public class AdminPanel implements Listener {
     }
 
     private void handleMuteInput(Player admin, String input) {
-        if (input.equalsIgnoreCase("отмена")) { pendingAction.remove(admin.getUniqueId()); admin.sendMessage("§cДействие отменено."); return; }
+        if (input.equalsIgnoreCase("отмена")) { pendingAction.remove(admin.getUniqueId()); admin.sendMessage("§cОтменено."); return; }
         OfflinePlayer target = Bukkit.getOfflinePlayer(input);
         if (target == null || !target.hasPlayedBefore()) { admin.sendMessage("§cИгрок не найден."); return; }
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "mute " + target.getName() + " 1h");
@@ -227,7 +194,7 @@ public class AdminPanel implements Listener {
     }
 
     private void handleJailInput(Player admin, String input) {
-        if (input.equalsIgnoreCase("отмена")) { pendingAction.remove(admin.getUniqueId()); admin.sendMessage("§cДействие отменено."); return; }
+        if (input.equalsIgnoreCase("отмена")) { pendingAction.remove(admin.getUniqueId()); admin.sendMessage("§cОтменено."); return; }
         OfflinePlayer target = Bukkit.getOfflinePlayer(input);
         if (target == null || !target.hasPlayedBefore()) { admin.sendMessage("§cИгрок не найден."); return; }
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "jail " + target.getName() + " adm_jail 10m");
@@ -242,7 +209,7 @@ public class AdminPanel implements Listener {
     }
 
     private void handleTeleportInput(Player admin, String input) {
-        if (input.equalsIgnoreCase("отмена")) { pendingAction.remove(admin.getUniqueId()); admin.sendMessage("§cДействие отменено."); return; }
+        if (input.equalsIgnoreCase("отмена")) { pendingAction.remove(admin.getUniqueId()); admin.sendMessage("§cОтменено."); return; }
         Player target = Bukkit.getPlayer(input);
         if (target == null) { admin.sendMessage("§cИгрок не в сети."); return; }
         admin.teleport(target);
@@ -252,15 +219,15 @@ public class AdminPanel implements Listener {
 
     private void startGiveMoneyProcess(Player player) {
         player.closeInventory();
-        player.sendMessage("§eВведите сумму для выдачи в чат (или 'отмена'):");
+        player.sendMessage("§eВведите сумму для выдачи (или 'отмена'):");
         pendingAction.put(player.getUniqueId(), "givemoney");
     }
 
     private void handleGiveMoneyInput(Player admin, String input) {
-        if (input.equalsIgnoreCase("отмена")) { pendingAction.remove(admin.getUniqueId()); admin.sendMessage("§cДействие отменено."); return; }
+        if (input.equalsIgnoreCase("отмена")) { pendingAction.remove(admin.getUniqueId()); admin.sendMessage("§cОтменено."); return; }
         try {
             double amount = Double.parseDouble(input);
-            if (amount <= 0) { admin.sendMessage("§cСумма должна быть больше 0."); return; }
+            if (amount <= 0) { admin.sendMessage("§cСумма должна быть > 0."); return; }
             plugin.getEconomyManager().deposit(admin, amount);
             admin.sendMessage("§aВы выдали себе " + amount + " " + plugin.getConfig().getString("main_currency", "RUB"));
             pendingAction.remove(admin.getUniqueId());
@@ -279,13 +246,7 @@ public class AdminPanel implements Listener {
     }
 
     private static class ChatMessage {
-        String sender;
-        String message;
-        long timestamp;
-        public ChatMessage(String sender, String message, long timestamp) {
-            this.sender = sender;
-            this.message = message;
-            this.timestamp = timestamp;
-        }
+        String sender; String message; long timestamp;
+        public ChatMessage(String sender, String message, long timestamp) { this.sender = sender; this.message = message; this.timestamp = timestamp; }
     }
 }

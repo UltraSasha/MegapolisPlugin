@@ -9,10 +9,7 @@ import org.bukkit.entity.Player;
 public class EngineCommand implements CommandExecutor {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (!(sender instanceof Player player)) {
-            sender.sendMessage("§cТолько для игроков.");
-            return true;
-        }
+        if (!(sender instanceof Player player)) { sender.sendMessage("§cТолько для игроков."); return true; }
         MegapolisPlugin.getInstance().getModuleManager().getVehicleManager().toggleEngine(player);
         return true;
     }

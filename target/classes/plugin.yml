@@ -1,0 +1,34 @@
+name: MegapolisCore
+version: 1.0
+author: Deezercraft2024
+main: com.megapolis.core.MegapolisPlugin
+api-version: 1.19
+depend: [Vault]
+softdepend: [WorldGuard, EssentialsX, SkinRestorer]
+commands:
+  pts:
+    description: Показать ПТС ближайшей машины
+    aliases: [ptsd]
+  trunk:
+    description: Открыть багажник машины
+  engine:
+    description: Вкл/выкл двигатель машины
+    aliases: [start, stop]
+  tf:
+    description: Превратиться в машину-трансформер или обратно
+  tablet:
+    description: Открыть планшет
+    aliases: [pda, phone]
+  skin:
+    description: Применить скин по имени
+  newskin:
+    description: Создать предмет-скин с текущим скином
+  vehicle:
+    description: Создать транспорт
+    usage: /vehicle <CAR|MOTORCYCLE|BOAT|HELICOPTER>
+  megapolis:
+    description: Основная команда плагина
+    aliases: [mp]
+  admin:
+    description: Открыть админ-панель
+    permission: megapolis.admin

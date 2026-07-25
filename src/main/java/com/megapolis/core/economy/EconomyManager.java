@@ -7,7 +7,6 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.plugin.RegisteredServiceProvider;
 
 public class EconomyManager {
-
     private final MegapolisPlugin plugin;
     private Economy vaultEconomy;
     public static final String SERVER_BOT_NAME = "ServerBot";
