@@ -83,4 +83,23 @@ public class Vehicle {
             return new Location(w, x, y, z, yaw, pitch);
         }
     }
+    public Vehicle getVehicleById(UUID vehicleId) {
+    return vehicles.get(vehicleId);
+}
+
+public void unregisterVehicle(UUID vehicleId) {
+    Vehicle vehicle = vehicles.remove(vehicleId);
+    if (vehicle != null) {
+        trunkInventories.remove(vehicleId);
+        // Удаляем из playerToVehicle, если там есть
+        for (Map.Entry<UUID, UUID> entry : playerToVehicle.entrySet()) {
+            if (entry.getValue().equals(vehicleId)) {
+                playerToVehicle.remove(entry.getKey());
+                break;
+            }
+        }
+        // Удаляем файл данных (опционально)
+        // dataManager.delete("vehicles/" + vehicleId);
+    }
+}
 }
