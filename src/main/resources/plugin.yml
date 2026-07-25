@@ -21,6 +21,8 @@ commands:
     aliases: [pda, phone]
   skin:
     description: Применить скин по имени
+  newskin:
+    description: Создать предмет-скин с текущим скином
   megapolis:
     description: Основная команда плагина
     aliases: [mp]
