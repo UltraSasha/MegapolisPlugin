@@ -1,10 +1,6 @@
 package com.megapolis.core.modules.skin;
 
 import com.megapolis.core.MegapolisPlugin;
-import net.skinsrestorer.api.SkinsRestorer;
-import net.skinsrestorer.api.SkinsRestorerProvider;
-import net.skinsrestorer.api.exception.SkinRequestException;
-import net.skinsrestorer.api.property.SkinProperty;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -27,73 +23,51 @@ import java.util.UUID;
 public class SkinManager implements Listener {
 
     private final MegapolisPlugin plugin;
-    private SkinsRestorer skinsRestorer;
     private final NamespacedKey skinKey;
-    private final NamespacedKey skinSourceKey; // откуда взят скин (имя или UUID)
 
-    // Кэш: UUID игрока → имя скина, который он сейчас использует
+    // Кэш: UUID игрока → имя скина, которое он использует
     private final Map<UUID, String> activeSkins = new HashMap<>();
 
     public SkinManager(MegapolisPlugin plugin) {
         this.plugin = plugin;
         this.skinKey = new NamespacedKey(plugin, "skin_name");
-        this.skinSourceKey = new NamespacedKey(plugin, "skin_source");
-
-        // Инициализация API SkinRestorer
-        try {
-            this.skinsRestorer = SkinsRestorerProvider.get();
-            plugin.getLogger().info("SkinRestorer API успешно подключен.");
-        } catch (Exception e) {
-            plugin.getLogger().warning("SkinRestorer не найден! Скины не будут работать.");
-            this.skinsRestorer = null;
-        }
-
         Bukkit.getPluginManager().registerEvents(this, plugin);
+
+        // Проверяем, установлен ли SkinRestorer
+        if (Bukkit.getPluginManager().getPlugin("SkinRestorer") == null) {
+            plugin.getLogger().warning("⚠️ SkinRestorer не найден! Скины не будут работать.");
+        } else {
+            plugin.getLogger().info("✅ SkinRestorer найден, скины будут работать через команды.");
+        }
     }
 
     /**
-     * Проверяет, доступен ли SkinRestorer.
-     */
-    public boolean isSkinRestorerAvailable() {
-        return skinsRestorer != null;
-    }
-
-    /**
-     * Применяет скин к игроку по имени скина.
+     * Применяет скин к игроку через консольную команду.
      */
     public boolean applySkin(Player player, String skinName) {
-        if (!isSkinRestorerAvailable()) {
-            player.sendMessage("§cSkinRestorer не установлен!");
+        if (Bukkit.getPluginManager().getPlugin("SkinRestorer") == null) {
+            player.sendMessage("§cSkinRestorer не установлен на сервере!");
             return false;
         }
 
-        try {
-            SkinProperty skinData = skinsRestorer.getSkinStorage().getSkinData(skinName);
-            if (skinData == null) {
-                skinData = skinsRestorer.getMojangAPI().getSkinData(skinName);
-                if (skinData == null) {
-                    player.sendMessage("§cСкин с именем '" + skinName + "' не найден!");
-                    return false;
-                }
-            }
+        // Выполняем команду от консоли
+        boolean success = Bukkit.dispatchCommand(
+                Bukkit.getConsoleSender(),
+                "skin set " + player.getName() + " " + skinName
+        );
 
-            skinsRestorer.getSkinApplier(Player.class).applySkin(player, skinData);
+        if (success) {
             activeSkins.put(player.getUniqueId(), skinName);
             player.sendMessage("§aСкин '" + skinName + "' успешно применён!");
-            return true;
-
-        } catch (SkinRequestException e) {
-            player.sendMessage("§cОшибка при применении скина: " + e.getMessage());
-            return false;
-        } catch (Exception e) {
-            player.sendMessage("§cНеизвестная ошибка: " + e.getMessage());
-            e.printStackTrace();
-            return false;
+        } else {
+            player.sendMessage("§cНе удалось применить скин. Проверьте имя скина.");
         }
+
+        return success;
     }
 
     /**
-     * Применяет скин из предмета (игрок кликает по предмету-скину).
+     * Применяет скин из предмета (ПКМ по голове).
      */
     public boolean applySkinFromItem(Player player, ItemStack item) {
         if (item == null || item.getType() != Material.PLAYER_HEAD) {
@@ -108,72 +82,47 @@ public class SkinManager implements Listener {
             return false;
         }
 
-        // Предмет одноразовый (убираем один)
+        // Убираем 1 предмет из стека (одноразовый скин)
         item.setAmount(item.getAmount() - 1);
 
         return applySkin(player, skinName);
     }
 
     /**
-     * Создаёт предмет-скин, который запоминает ТЕКУЩИЙ скин игрока.
-     * Используется в команде /newskin.
+     * Создаёт предмет-скин (голову) для выдачи игроку.
      */
-    public ItemStack createSkinItemFromCurrent(Player player, String skinName) {
-        // Получаем текущий скин игрока
-        String currentSkin = activeSkins.getOrDefault(player.getUniqueId(), null);
-        if (currentSkin == null) {
-            // Если у игрока нет активного скина (стандартный), пытаемся получить через API
-            try {
-                if (isSkinRestorerAvailable()) {
-                    SkinProperty skinData = skinsRestorer.getSkinStorage().getSkinData(player.getName());
-                    if (skinData != null) {
-                        // Пытаемся выяснить имя, но API не даёт прямой метод, поэтому используем имя игрока
-                        // В реальности нужно сохранять имя при применении, но для простоты будем использовать ник игрока
-                        currentSkin = player.getName();
-                    }
-                }
-            } catch (Exception e) {
-                // Игнорируем
-            }
-        }
-
-        if (currentSkin == null) {
-            // Если всё равно null, используем ник игрока (как имя скина)
-            currentSkin = player.getName();
-        }
-
+    public ItemStack createSkinItem(String skinName, String displayName) {
         ItemStack item = new ItemStack(Material.PLAYER_HEAD);
         SkullMeta meta = (SkullMeta) item.getItemMeta();
-        meta.setDisplayName("§6Скин: " + skinName);
+        meta.setDisplayName("§6" + displayName);
         meta.setLore(Arrays.asList(
-                "§7Запомненный скин: §f" + currentSkin,
-                "§7Нажмите ПКМ, чтобы применить",
-                "§7(Одноразовый)"
+                "§7Нажмите ПКМ, чтобы применить скин",
+                "§7Скин: §f" + skinName
         ));
-        // Сохраняем имя скина в PDC
-        meta.getPersistentDataContainer().set(skinKey, PersistentDataType.STRING, currentSkin);
-        // Сохраняем название, данное игроком (для информации)
-        meta.getPersistentDataContainer().set(skinSourceKey, PersistentDataType.STRING, skinName);
-        // Устанавливаем скин на голову (для отображения)
-        // Можно попробовать установить владельца, если это валидный ник
-        // meta.setOwningPlayer(Bukkit.getOfflinePlayer(currentSkin));
+        // Сохраняем имя скина в PersistentDataContainer
+        meta.getPersistentDataContainer().set(skinKey, PersistentDataType.STRING, skinName);
         item.setItemMeta(meta);
         return item;
     }
 
     /**
-     * Открывает GUI со скинами (для планшета).
+     * Открывает GUI управления скинами (из планшета).
      */
     public void openSkinGUI(Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, "§dСкины");
 
+        // Кнопка: применить скин из предмета в руке
         ItemStack applyBtn = new ItemStack(Material.GOLD_INGOT);
         ItemMeta applyMeta = applyBtn.getItemMeta();
         applyMeta.setDisplayName("§aПрименить скин из предмета");
-        applyMeta.setLore(Arrays.asList("§7Держите в руке предмет-скин", "§7и нажмите сюда"));
+        applyMeta.setLore(Arrays.asList(
+                "§7Держите в руке предмет-скин (голову)",
+                "§7и нажмите сюда"
+        ));
         applyBtn.setItemMeta(applyMeta);
         inv.setItem(0, applyBtn);
 
+        // Кнопка: сбросить скин (на стандартный)
         ItemStack resetBtn = new ItemStack(Material.BARRIER);
         ItemMeta resetMeta = resetBtn.getItemMeta();
         resetMeta.setDisplayName("§cСбросить скин");
@@ -181,6 +130,7 @@ public class SkinManager implements Listener {
         resetBtn.setItemMeta(resetMeta);
         inv.setItem(1, resetBtn);
 
+        // Информация о текущем скине
         String currentSkin = activeSkins.getOrDefault(player.getUniqueId(), "Не установлен");
         ItemStack infoBtn = new ItemStack(Material.BOOK);
         ItemMeta infoMeta = infoBtn.getItemMeta();
@@ -189,6 +139,18 @@ public class SkinManager implements Listener {
         infoBtn.setItemMeta(infoMeta);
         inv.setItem(2, infoBtn);
 
+        // Команда /skin (пояснение)
+        ItemStack cmdBtn = new ItemStack(Material.PAPER);
+        ItemMeta cmdMeta = cmdBtn.getItemMeta();
+        cmdMeta.setDisplayName("§6Команда /skin");
+        cmdMeta.setLore(Arrays.asList(
+                "§7Используйте: §f/skin <имя_скина>",
+                "§7Пример: §f/skin Bumblebee"
+        ));
+        cmdBtn.setItemMeta(cmdMeta);
+        inv.setItem(3, cmdBtn);
+
+        // Закрыть
         ItemStack closeBtn = new ItemStack(Material.BARRIER);
         ItemMeta closeMeta = closeBtn.getItemMeta();
         closeMeta.setDisplayName("§cЗакрыть");
@@ -207,25 +169,23 @@ public class SkinManager implements Listener {
         int slot = event.getRawSlot();
         switch (slot) {
             case 0 -> {
+                // Применить скин из предмета в руке
                 ItemStack item = player.getInventory().getItemInMainHand();
                 if (applySkinFromItem(player, item)) {
-                    player.sendMessage("§aСкин успешно применён!");
+                    player.sendMessage("§aСкин применён!");
                 } else {
                     player.sendMessage("§cДержите в руке валидный предмет-скин (PLAYER_HEAD).");
                 }
                 player.closeInventory();
             }
             case 1 -> {
-                if (isSkinRestorerAvailable()) {
-                    try {
-                        skinsRestorer.getSkinApplier(Player.class).removeSkin(player);
-                        activeSkins.remove(player.getUniqueId());
-                        player.sendMessage("§aСкин сброшен до стандартного.");
-                    } catch (Exception e) {
-                        player.sendMessage("§cОшибка при сбросе скина.");
-                    }
+                // Сброс скина
+                if (Bukkit.getPluginManager().getPlugin("SkinRestorer") != null) {
+                    Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "skin remove " + player.getName());
+                    activeSkins.remove(player.getUniqueId());
+                    player.sendMessage("§aСкин сброшен до стандартного.");
                 } else {
-                    player.sendMessage("§cSkinRestorer не доступен.");
+                    player.sendMessage("§cSkinRestorer не установлен!");
                 }
                 player.closeInventory();
             }
@@ -233,6 +193,9 @@ public class SkinManager implements Listener {
         }
     }
 
+    /**
+     * Обработчик ПКМ по предмету-скину (вне GUI).
+     */
     @EventHandler
     public void onSkinItemUse(PlayerInteractEvent event) {
         if (event.getAction() != org.bukkit.event.block.Action.RIGHT_CLICK_AIR &&
@@ -248,15 +211,27 @@ public class SkinManager implements Listener {
             ItemMeta meta = item.getItemMeta();
             String skinName = meta.getPersistentDataContainer().get(skinKey, PersistentDataType.STRING);
             if (skinName != null && !skinName.isEmpty()) {
-                if (applySkinFromItem(player, item)) {
-                    player.sendMessage("§aСкин '" + skinName + "' применён!");
-                }
+                applySkinFromItem(player, item);
                 event.setCancelled(true);
             }
         }
     }
 
+    /**
+     * Получить имя текущего скина игрока.
+     */
     public String getActiveSkin(Player player) {
         return activeSkins.getOrDefault(player.getUniqueId(), "Не установлен");
+    }
+
+    /**
+     * Команда /newskin <название> — сохраняет текущий скин игрока как предмет.
+     */
+    public void saveCurrentSkinAsItem(Player player, String skinName) {
+        // Получаем текущий скин игрока через команду (если есть)
+        // Упрощённо: просто создаём предмет с указанным именем
+        ItemStack skinItem = createSkinItem(skinName, "§6Скин: " + skinName);
+        player.getInventory().addItem(skinItem);
+        player.sendMessage("§aПредмет-скин '" + skinName + "' создан!");
     }
 }
