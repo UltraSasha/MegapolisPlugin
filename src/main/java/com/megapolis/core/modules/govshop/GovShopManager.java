@@ -102,4 +102,25 @@ public class GovShopManager implements Listener {
         }
         plugin.getEconomyManager().withdraw(player, totalPrice);
         player.getInventory().addItem(new ItemStack(item.getMaterial(), buyAmount));
-        player.sendMessage("§aВы купили " +
+        player.sendMessage("§aВы купили " + buyAmount + "x " + item.getName() + " за " + totalPrice + " монет.");
+    }
+
+    private static class ShopItem {
+        private final String name;
+        private final Material material;
+        private final int price;
+        private final int amount;
+
+        public ShopItem(String name, Material material, int price, int amount) {
+            this.name = name;
+            this.material = material;
+            this.price = price;
+            this.amount = amount;
+        }
+
+        public String getName() { return name; }
+        public Material getMaterial() { return material; }
+        public int getPrice() { return price; }
+        public int getAmount() { return amount; }
+    }
+}
