@@ -6,6 +6,7 @@ import com.megapolis.core.modules.business.BusinessManager;
 import com.megapolis.core.modules.cases.CaseManager;
 import com.megapolis.core.modules.events.EventManager;
 import com.megapolis.core.modules.govshop.GovShopManager;
+import com.megapolis.core.modules.locations.LocationManager;
 import com.megapolis.core.modules.market.MarketManager;
 import com.megapolis.core.modules.messenger.MessengerManager;
 import com.megapolis.core.modules.skin.SkinManager;
@@ -34,6 +35,7 @@ public class ModuleManager {
     private MarketManager marketManager;
     private MessengerManager messengerManager;
     private SkinManager skinManager;
+    private LocationManager locationManager;
 
     public ModuleManager(MegapolisPlugin plugin) {
         this.plugin = plugin;
@@ -49,6 +51,7 @@ public class ModuleManager {
         this.marketManager = new MarketManager(plugin);
         this.messengerManager = new MessengerManager(plugin);
         this.skinManager = new SkinManager(plugin);
+        this.locationManager = new LocationManager(plugin);
         this.tabletManager = new TabletManager(plugin);
 
         PluginManager pm = Bukkit.getPluginManager();
@@ -70,6 +73,7 @@ public class ModuleManager {
     public MarketManager getMarketManager() { return marketManager; }
     public MessengerManager getMessengerManager() { return messengerManager; }
     public SkinManager getSkinManager() { return skinManager; }
+    public LocationManager getLocationManager() { return locationManager; }
 
     public void disable() {
         vehicleManager.saveAll();
