@@ -8,6 +8,7 @@ storage:
     username: root
     password: ""
 
+main_currency: RUB
 start_balance: 15000000
 
 vehicles:
