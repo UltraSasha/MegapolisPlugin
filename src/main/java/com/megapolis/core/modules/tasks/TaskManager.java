@@ -1,6 +1,7 @@
 package com.megapolis.core.modules.tasks;
 
 import com.megapolis.core.MegapolisPlugin;
+import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -26,6 +27,7 @@ public class TaskManager implements Listener {
         Bukkit.getPluginManager().registerEvents(this, plugin);
     }
 
+    // Генерация заданий для игрока
     public void generateDailyTasks(Player player) {
         UUID uuid = player.getUniqueId();
         List<Task> tasks = new ArrayList<>();
@@ -33,6 +35,7 @@ public class TaskManager implements Listener {
         tasks.add(generateRandomTask(false));
         tasks.add(generateRandomTask(true));
         playerTasks.put(uuid, tasks);
+
         Map<String, Integer> progress = new HashMap<>();
         for (Task t : tasks) {
             progress.put(t.getObjective(), 0);
@@ -61,6 +64,7 @@ public class TaskManager implements Listener {
         return new Task(objective, reward, business);
     }
 
+    // Открыть GUI заданий
     public void openTasksGUI(Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, "§eЕжедневные задания");
         List<Task> tasks = playerTasks.get(player.getUniqueId());
@@ -76,16 +80,20 @@ public class TaskManager implements Listener {
             String status = task.isCompleted() ? "§aВыполнено!" : "§cНе выполнено";
             int prog = progress.getOrDefault(task.getObjective(), 0);
             meta.setDisplayName("§6" + task.getObjective());
-            meta.setLore(Arrays.asList("§7Прогресс: §f" + prog + "/" + task.getRequiredAmount(),
-                                       "§7Награда: §a" + task.getReward() + " монет",
-                                       "§7Статус: " + status,
-                                       task.isBusiness() ? "§cБизнес-задание" : "§fОбычное"));
+            meta.setLore(Arrays.asList(
+                    "§7Прогресс: §f" + prog + "/" + task.getRequiredAmount(),
+                    "§7Награда: §a" + task.getReward() + " монет",
+                    "§7Статус: " + status,
+                    task.isBusiness() ? "§cБизнес-задание" : "§fОбычное"
+            ));
             item.setItemMeta(meta);
             inv.setItem(slot, item);
             slot++;
         }
         player.openInventory(inv);
     }
+
+    // === Обработчики прогресса ===
 
     @EventHandler
     public void onEntityDeath(EntityDeathEvent event) {
@@ -123,7 +131,9 @@ public class TaskManager implements Listener {
         for (Task task : tasks) {
             if (task.isCompleted()) continue;
             String obj = task.getObjective();
-            if (obj.startsWith(objectiveTemplate.replace("%d", "").trim())) {
+            // Проверяем, совпадает ли шаблон (убираем %d)
+            String templateWithoutPlaceholder = objectiveTemplate.replace("%d", "").trim();
+            if (obj.startsWith(templateWithoutPlaceholder)) {
                 int current = progress.getOrDefault(obj, 0);
                 current += amount;
                 progress.put(obj, current);
@@ -145,6 +155,7 @@ public class TaskManager implements Listener {
         }
     }
 
+    // === Класс задания ===
     public static class Task {
         private final String objective;
         private final int reward;
@@ -163,7 +174,9 @@ public class TaskManager implements Listener {
         public boolean isBusiness() { return business; }
         public boolean isCompleted() { return completed; }
         public void setCompleted(boolean completed) { this.completed = completed; }
+
         public int getRequiredAmount() {
+            // Парсим число из строки (упрощённо)
             String[] parts = objective.split(" ");
             for (String part : parts) {
                 try {
