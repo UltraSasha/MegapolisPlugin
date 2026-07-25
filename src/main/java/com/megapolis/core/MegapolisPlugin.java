@@ -22,6 +22,7 @@ public class MegapolisPlugin extends JavaPlugin {
         this.economyManager = new EconomyManager(this);
         this.moduleManager = new ModuleManager(this);
 
+        // Регистрация команд
         getCommand("pts").setExecutor(new PTSCommand());
         getCommand("trunk").setExecutor(new TrunkCommand());
         getCommand("engine").setExecutor(new EngineCommand());
@@ -29,14 +30,16 @@ public class MegapolisPlugin extends JavaPlugin {
         getCommand("tablet").setExecutor(new TabletCommand());
         getCommand("skin").setExecutor(new SkinCommand());
         getCommand("newskin").setExecutor(new NewSkinCommand());
+        getCommand("vehicle").setExecutor(new VehicleSpawnCommand());
+        getCommand("megapolis").setExecutor(new MegapolisCommand());
 
         getLogger().info("MegapolisCore успешно загружен!");
     }
 
     @Override
     public void onDisable() {
-        dataManager.saveAll();
-        moduleManager.disable();
+        if (dataManager != null) dataManager.saveAll();
+        if (moduleManager != null) moduleManager.disable();
         getLogger().info("MegapolisCore выгружен.");
     }
 
