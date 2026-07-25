@@ -6,6 +6,12 @@ api-version: 1.19
 depend: [Vault]
 softdepend: [WorldGuard, EssentialsX, SkinRestorer]
 commands:
+  admin:
+    description: Открыть админ-панель
+    permission: megapolis.admin
+  tasks:
+    description: Открыть задания
+    aliases: [task]
   pts:
     description: Показать ПТС ближайшей машины
     aliases: [ptsd]
