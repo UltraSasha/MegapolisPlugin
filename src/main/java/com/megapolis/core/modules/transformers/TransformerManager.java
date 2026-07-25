@@ -4,6 +4,7 @@ import com.megapolis.core.MegapolisPlugin;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Particle;
+import org.bukkit.Sound;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Horse;
@@ -63,7 +64,7 @@ public class TransformerManager {
         transformerActive.put(playerId, true);
 
         spawnTransformationParticles(loc, 100);
-        world.playSound(loc, org.bukkit.Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0f, 0.5f);
+        world.playSound(loc, Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0f, 0.5f);
 
         player.sendMessage("§6Вы превратились в машину! Нажмите Shift, чтобы выйти.");
     }
@@ -83,10 +84,11 @@ public class TransformerManager {
         player.setInvisible(false);
         player.setInvulnerable(false);
 
+        // Восстанавливаем скин через SkinRestorer
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "skin update " + player.getName());
 
         spawnTransformationParticles(loc, 100);
-        loc.getWorld().playSound(loc, org.bukkit.Sound.ENTITY_ENDER_DRAGON_FLIGHT, 1.0f, 0.5f);
+        loc.getWorld().playSound(loc, Sound.ENTITY_ENDER_DRAGON_FLAP, 1.0f, 0.5f);
 
         transformerActive.put(playerId, false);
         player.sendMessage("§eВы вернулись в человеческий облик.");
@@ -97,8 +99,8 @@ public class TransformerManager {
         if (world == null) return;
         world.spawnParticle(Particle.EXPLOSION_HUGE, loc, 5);
         world.spawnParticle(Particle.CLOUD, loc, count, 2, 2, 2, 0.1);
-        world.spawnParticle(Particle.FLAME, loc, count/2, 2, 2, 2, 0.1);
-        world.spawnParticle(Particle.ENCHANTMENT_TABLE, loc, count/2, 2, 2, 2, 0.5);
+        world.spawnParticle(Particle.FLAME, loc, count / 2, 2, 2, 2, 0.1);
+        world.spawnParticle(Particle.ENCHANTMENT_TABLE, loc, count / 2, 2, 2, 2, 0.5);
     }
 
     public boolean isTransformed(Player player) {
