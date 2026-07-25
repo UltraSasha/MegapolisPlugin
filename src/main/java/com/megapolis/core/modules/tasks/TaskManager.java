@@ -1,4 +1,4 @@
- package com.megapolis.core.modules.tasks;
+package com.megapolis.core.modules.tasks;
 
 import com.megapolis.core.MegapolisPlugin;
 import org.bukkit.Bukkit;
@@ -21,10 +21,16 @@ public class TaskManager implements Listener {
     private final MegapolisPlugin plugin;
     private final Map<UUID, List<Task>> playerTasks = new HashMap<>();
     private final Map<UUID, Map<String, Integer>> taskProgress = new HashMap<>();
+    private final Map<UUID, Boolean> taskRewardClaimed = new HashMap<>();
+
+    // Основная валюта (синхронизируется с Vault)
+    private String mainCurrency = "RUB";
 
     public TaskManager(MegapolisPlugin plugin) {
         this.plugin = plugin;
         Bukkit.getPluginManager().registerEvents(this, plugin);
+        // Загружаем основную валюту из конфига
+        this.mainCurrency = plugin.getConfig().getString("main_currency", "RUB");
     }
 
     public void generateDailyTasks(Player player) {
@@ -40,26 +46,30 @@ public class TaskManager implements Listener {
             progress.put(t.getObjective(), 0);
         }
         taskProgress.put(uuid, progress);
+        taskRewardClaimed.put(uuid, false);
         player.sendMessage("§eПолучены новые ежедневные задания! Используйте /tasks для просмотра.");
     }
 
     private Task generateRandomTask(boolean business) {
-        String[] simpleObjectives = {"Убей %d зомби", "Добудь %d алмазов", "Пройди %d блоков", "Съешь %d яблок"};
-        String[] businessObjectives = {"Убей %d игроков на PvP-арене подряд", "Продай %d товаров", "Заработай %d монет"};
-
+        // Увеличиваем суммы наград, чтобы они были адекватны стартовому балансу 15 млн
         Random rand = new Random();
         String objective;
         int amount;
+        int reward;
+
         if (business) {
+            String[] businessObjectives = {"Убей %d игроков на PvP-арене подряд", "Продай %d товаров", "Заработай %d монет"};
             String template = businessObjectives[rand.nextInt(businessObjectives.length)];
             amount = 5 + rand.nextInt(15);
             objective = String.format(template, amount);
+            reward = 50000 + rand.nextInt(150000); // 50k - 200k
         } else {
+            String[] simpleObjectives = {"Убей %d зомби", "Добудь %d алмазов", "Пройди %d блоков", "Съешь %d яблок"};
             String template = simpleObjectives[rand.nextInt(simpleObjectives.length)];
             amount = 10 + rand.nextInt(40);
             objective = String.format(template, amount);
+            reward = 10000 + rand.nextInt(40000); // 10k - 50k
         }
-        int reward = business ? 50000 + rand.nextInt(100000) : 10000 + rand.nextInt(20000);
         return new Task(objective, reward, business);
     }
 
@@ -80,7 +90,7 @@ public class TaskManager implements Listener {
             meta.setDisplayName("§6" + task.getObjective());
             meta.setLore(Arrays.asList(
                     "§7Прогресс: §f" + prog + "/" + task.getRequiredAmount(),
-                    "§7Награда: §a" + task.getReward() + " монет",
+                    "§7Награда: §a" + task.getReward() + " " + mainCurrency,
                     "§7Статус: " + status,
                     task.isBusiness() ? "§cБизнес-задание" : "§fОбычное"
             ));
@@ -103,7 +113,7 @@ public class TaskManager implements Listener {
     public void onPlayerMove(PlayerMoveEvent event) {
         Player player = event.getPlayer();
         if (event.getFrom().getBlockX() == event.getTo().getBlockX() &&
-            event.getFrom().getBlockZ() == event.getTo().getBlockZ()) return;
+                event.getFrom().getBlockZ() == event.getTo().getBlockZ()) return;
         String objective = "Пройди %d блоков";
         updateProgress(player, objective, 1);
     }
@@ -134,8 +144,9 @@ public class TaskManager implements Listener {
                 progress.put(obj, current);
                 if (current >= task.getRequiredAmount()) {
                     task.setCompleted(true);
+                    // Выдаём награду в основной валюте
                     plugin.getEconomyManager().deposit(player, task.getReward());
-                    player.sendMessage("§aЗадание выполнено! Вы получили " + task.getReward() + " монет.");
+                    player.sendMessage("§aЗадание выполнено! Вы получили " + task.getReward() + " " + mainCurrency + ".");
                 }
                 return;
             }
