@@ -60,7 +60,7 @@ public class TabletManager implements Listener {
 
         switch (slot) {
             case 0 -> plugin.getModuleManager().getBankManager().openBankGUI(player);
-            case 1 -> plugin.getModuleManager().getVehicleManager().openAutoMarket(player);
+            case 1 -> openAutoMarketChoice(player);
             case 2 -> plugin.getModuleManager().getGovShopManager().openGovShop(player);
             case 3 -> plugin.getModuleManager().getTaskManager().openTasksGUI(player);
             case 4 -> plugin.getModuleManager().getCaseManager().openCasesGUI(player);
@@ -68,6 +68,30 @@ public class TabletManager implements Listener {
             case 6 -> plugin.getModuleManager().getMarketManager().openMarketGUI(player);
             case 7 -> plugin.getModuleManager().getSkinManager().openSkinGUI(player);
             default -> {}
+        }
+    }
+
+    // --- Авторынок с выбором: государство или игроки ---
+    private void openAutoMarketChoice(Player player) {
+        Inventory inv = Bukkit.createInventory(null, 27, "§bАвторынок");
+        inv.setItem(0, createButton(Material.GOLD_INGOT, "§6Гос. машины", "Купить новые от государства"));
+        inv.setItem(1, createButton(Material.DIAMOND, "§6От игроков", "Купить с рук (аукцион)"));
+        inv.setItem(26, createButton(Material.BARRIER, "§cЗакрыть", ""));
+        player.openInventory(inv);
+    }
+
+    @EventHandler
+    public void onAutoMarketChoice(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (!event.getView().getTitle().equals("§bАвторынок")) return;
+        event.setCancelled(true);
+        int slot = event.getRawSlot();
+        if (slot == 26) { player.closeInventory(); return; }
+        player.closeInventory();
+        if (slot == 0) {
+            plugin.getModuleManager().getVehicleManager().openAutoMarket(player);
+        } else if (slot == 1) {
+            plugin.getModuleManager().getMarketManager().openVehicleAuction(player);
         }
     }
 }
