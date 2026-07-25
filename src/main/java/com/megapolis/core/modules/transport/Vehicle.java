@@ -16,6 +16,9 @@ public class Vehicle {
     private String plateNumber;
     private boolean engineRunning;
     private int nitroLevel;
+    private int engineLevel;
+    private int brakesLevel;
+    private int hydraulicsLevel;
     private String trunkData;
 
     public Vehicle(UUID vehicleId, UUID owner, VehicleType type, Location location, int health, int fuel) {
@@ -27,6 +30,9 @@ public class Vehicle {
         this.fuel = Math.min(100, Math.max(0, fuel));
         this.engineRunning = true;
         this.nitroLevel = 0;
+        this.engineLevel = 0;
+        this.brakesLevel = 0;
+        this.hydraulicsLevel = 0;
         this.trunkData = "";
     }
 
@@ -45,6 +51,12 @@ public class Vehicle {
     public void setEngineRunning(boolean running) { this.engineRunning = running; }
     public int getNitroLevel() { return nitroLevel; }
     public void setNitroLevel(int level) { this.nitroLevel = Math.min(3, Math.max(0, level)); }
+    public int getEngineLevel() { return engineLevel; }
+    public void setEngineLevel(int level) { this.engineLevel = Math.min(3, Math.max(0, level)); }
+    public int getBrakesLevel() { return brakesLevel; }
+    public void setBrakesLevel(int level) { this.brakesLevel = Math.min(3, Math.max(0, level)); }
+    public int getHydraulicsLevel() { return hydraulicsLevel; }
+    public void setHydraulicsLevel(int level) { this.hydraulicsLevel = Math.min(2, Math.max(0, level)); }
     public String getTrunkData() { return trunkData; }
     public void setTrunkData(String trunkData) { this.trunkData = trunkData; }
 
