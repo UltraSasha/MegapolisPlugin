@@ -277,17 +277,11 @@ public class VehicleManager implements Listener {
             player.sendMessage("§cНет машин рядом.");
             return;
         }
-        player.sendMessage("§6=== ПТС ===
-§7Модель: " + vehicle.getType().getDisplayName() +
-                "
-§7Владелец: " + Bukkit.getOfflinePlayer(vehicle.getOwner()).getName() +
-                "
-§7Здоровье: " + vehicle.getHealth() + "%
-§7Топливо: " + vehicle.getFuel() + "%" +
-                "
-§7Двигатель: " + (vehicle.getEngineRunning() ? "§aЗаведён" : "§cЗаглушён") +
-                "
-§7Нитро: " + vehicle.getNitroLevel());
+        player.sendMessage("§6=== ПТС ===\n§7Модель: " + vehicle.getType().getDisplayName() +
+                "\n§7Владелец: " + Bukkit.getOfflinePlayer(vehicle.getOwner()).getName() +
+                "\n§7Здоровье: " + vehicle.getHealth() + "%\n§7Топливо: " + vehicle.getFuel() + "%" +
+                "\n§7Двигатель: " + (vehicle.getEngineRunning() ? "§aЗаведён" : "§cЗаглушён") +
+                "\n§7Нитро: " + vehicle.getNitroLevel());
     }
 
     public void toggleEngine(Player player) {
