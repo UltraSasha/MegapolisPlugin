@@ -28,7 +28,7 @@ public class MegapolisPlugin extends JavaPlugin {
         getCommand("engine").setExecutor(new EngineCommand());
         getCommand("tf").setExecutor(new TFCommand());
         getCommand("tablet").setExecutor(new TabletCommand());
-        getCommand("skin").setExecutor(new SkinCommand());
+        getCommand("myskin").setExecutor(new SkinCommand());
         getCommand("newskin").setExecutor(new NewSkinCommand());
         getCommand("vehicle").setExecutor(new VehicleSpawnCommand());
         getCommand("megapolis").setExecutor(new MegapolisCommand());
