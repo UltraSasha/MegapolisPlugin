@@ -1,6 +1,7 @@
 package com.megapolis.core.modules.business;
 
 import com.megapolis.core.MegapolisPlugin;
+import com.megapolis.core.modules.locations.LocationManager.LocationData;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -192,6 +193,21 @@ public class BusinessManager implements Listener {
                 openEmployeesGUI(player, business);
             }
         }
+    }
+
+    public void openBusinessLocationGUI(Player player, LocationData locationData) {
+        Business business = getBusinessByOwner(player);
+        if (business == null) {
+            player.sendMessage("§cУ вас нет бизнеса на этой локации.");
+            return;
+        }
+        Inventory inv = Bukkit.createInventory(null, 27, "§6Бизнес: " + locationData.getDisplayName());
+        inv.setItem(0, createInfoItem(Material.DIAMOND, "Казна", "§e" + business.getTreasury() + " монет"));
+        inv.setItem(1, createInfoItem(Material.PLAYER_HEAD, "Сотрудники", "§7Количество: " + businessEmployees.getOrDefault(business.getId(), new ArrayList<>()).size()));
+        inv.setItem(2, createButton(Material.GOLD_INGOT, "Снять деньги", "Снять с казны (владелец)"));
+        inv.setItem(3, createButton(Material.BOOK, "Управление сотрудниками", "Нанять/уволить"));
+        inv.setItem(26, createButton(Material.BARRIER, "Закрыть", ""));
+        player.openInventory(inv);
     }
 
     private ItemStack createInfoItem(Material mat, String name, String lore) {
