@@ -22,7 +22,6 @@ public class ModuleManager {
 
     private final MegapolisPlugin plugin;
 
-    // Все модули
     private VehicleManager vehicleManager;
     private CaseManager caseManager;
     private TransformerManager transformerManager;
@@ -39,7 +38,6 @@ public class ModuleManager {
     public ModuleManager(MegapolisPlugin plugin) {
         this.plugin = plugin;
 
-        // Инициализация всех модулей
         this.vehicleManager = new VehicleManager(plugin);
         this.caseManager = new CaseManager(plugin);
         this.transformerManager = new TransformerManager(plugin);
@@ -53,16 +51,13 @@ public class ModuleManager {
         this.skinManager = new SkinManager(plugin);
         this.tabletManager = new TabletManager(plugin);
 
-        // Регистрация слушателей
         PluginManager pm = Bukkit.getPluginManager();
         pm.registerEvents(new VehicleListener(vehicleManager), plugin);
         pm.registerEvents(new TransformerListener(transformerManager), plugin);
-        // SkinManager сам регистрирует свои слушатели
 
         plugin.getLogger().info("Все модули успешно загружены.");
     }
 
-    // === Геттеры для всех модулей ===
     public VehicleManager getVehicleManager() { return vehicleManager; }
     public CaseManager getCaseManager() { return caseManager; }
     public TransformerManager getTransformerManager() { return transformerManager; }
