@@ -4,9 +4,12 @@ import com.megapolis.core.commands.*;
 import com.megapolis.core.data.DataManager;
 import com.megapolis.core.economy.EconomyManager;
 import com.megapolis.core.modules.ModuleManager;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 
-public class MegapolisPlugin extends JavaPlugin {
+public class MegapolisPlugin extends JavaPlugin implements Listener {
 
     private static MegapolisPlugin instance;
     private DataManager dataManager;
@@ -17,6 +20,7 @@ public class MegapolisPlugin extends JavaPlugin {
     public void onEnable() {
         instance = this;
         saveDefaultConfig();
+        getServer().getPluginManager().registerEvents(this, this);
 
         this.dataManager = new DataManager(this);
         this.economyManager = new EconomyManager(this);
@@ -28,10 +32,11 @@ public class MegapolisPlugin extends JavaPlugin {
         getCommand("engine").setExecutor(new EngineCommand());
         getCommand("tf").setExecutor(new TFCommand());
         getCommand("tablet").setExecutor(new TabletCommand());
-        getCommand("myskin").setExecutor(new SkinCommand());
+        getCommand("skin").setExecutor(new SkinCommand());
         getCommand("newskin").setExecutor(new NewSkinCommand());
         getCommand("vehicle").setExecutor(new VehicleSpawnCommand());
         getCommand("megapolis").setExecutor(new MegapolisCommand());
+        getCommand("admin").setExecutor(new AdminCommand());
 
         getLogger().info("MegapolisCore успешно загружен!");
     }
@@ -41,6 +46,17 @@ public class MegapolisPlugin extends JavaPlugin {
         if (dataManager != null) dataManager.saveAll();
         if (moduleManager != null) moduleManager.disable();
         getLogger().info("MegapolisCore выгружен.");
+    }
+
+    // Обработчик чата для админ-панели (ввод для банов, мута и т.д.)
+    @EventHandler
+    public void onPlayerChat(AsyncPlayerChatEvent event) {
+        Player player = event.getPlayer();
+        AdminPanel panel = moduleManager.getAdminPanel();
+        if (panel.isAwaitingInput(player)) {
+            event.setCancelled(true);
+            panel.processAdminInput(player, event.getMessage());
+        }
     }
 
     public static MegapolisPlugin getInstance() { return instance; }
