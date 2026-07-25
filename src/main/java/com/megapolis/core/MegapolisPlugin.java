@@ -4,8 +4,6 @@ import com.megapolis.core.commands.*;
 import com.megapolis.core.data.DataManager;
 import com.megapolis.core.economy.EconomyManager;
 import com.megapolis.core.modules.ModuleManager;
-import com.megapolis.core.commands.NewSkinCommand;
-
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class MegapolisPlugin extends JavaPlugin {
