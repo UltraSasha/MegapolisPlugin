@@ -1,16 +1,14 @@
 package com.megapolis.core.modules.tasks;
 
 import com.megapolis.core.MegapolisPlugin;
-import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDeathEvent;
-import org.bukkit.event.player.PlayerMoveEvent;
-import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.player.PlayerItemConsumeEvent;
+import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -26,10 +24,8 @@ public class TaskManager implements Listener {
     public TaskManager(MegapolisPlugin plugin) {
         this.plugin = plugin;
         Bukkit.getPluginManager().registerEvents(this, plugin);
-        // Генерация заданий при входе будет в отдельном слушателе
     }
 
-    // Генерация заданий для игрока
     public void generateDailyTasks(Player player) {
         UUID uuid = player.getUniqueId();
         List<Task> tasks = new ArrayList<>();
@@ -37,13 +33,11 @@ public class TaskManager implements Listener {
         tasks.add(generateRandomTask(false));
         tasks.add(generateRandomTask(true));
         playerTasks.put(uuid, tasks);
-        // Инициализируем прогресс
         Map<String, Integer> progress = new HashMap<>();
         for (Task t : tasks) {
             progress.put(t.getObjective(), 0);
         }
         taskProgress.put(uuid, progress);
-        // Сообщаем игроку
         player.sendMessage("§eПолучены новые ежедневные задания! Используйте /tasks для просмотра.");
     }
 
@@ -67,7 +61,6 @@ public class TaskManager implements Listener {
         return new Task(objective, reward, business);
     }
 
-    // Открыть GUI заданий
     public void openTasksGUI(Player player) {
         Inventory inv = Bukkit.createInventory(null, 27, "§eЕжедневные задания");
         List<Task> tasks = playerTasks.get(player.getUniqueId());
@@ -94,12 +87,10 @@ public class TaskManager implements Listener {
         player.openInventory(inv);
     }
 
-    // === Обработчики прогресса ===
-
     @EventHandler
     public void onEntityDeath(EntityDeathEvent event) {
-        if (!(event.getEntity().getKiller() instanceof Player player)) return;
-        // Убийство зомби (упрощённо)
+        Player player = event.getEntity().getKiller();
+        if (player == null) return;
         String objective = "Убей %d зомби";
         updateProgress(player, objective, 1);
     }
@@ -109,7 +100,6 @@ public class TaskManager implements Listener {
         Player player = event.getPlayer();
         if (event.getFrom().getBlockX() == event.getTo().getBlockX() &&
             event.getFrom().getBlockZ() == event.getTo().getBlockZ()) return;
-        // Пройдено блоков (упрощённо)
         String objective = "Пройди %d блоков";
         updateProgress(player, objective, 1);
     }
@@ -132,7 +122,6 @@ public class TaskManager implements Listener {
 
         for (Task task : tasks) {
             if (task.isCompleted()) continue;
-            // Проверяем, совпадает ли шаблон
             String obj = task.getObjective();
             if (obj.startsWith(objectiveTemplate.replace("%d", "").trim())) {
                 int current = progress.getOrDefault(obj, 0);
@@ -140,7 +129,6 @@ public class TaskManager implements Listener {
                 progress.put(obj, current);
                 if (current >= task.getRequiredAmount()) {
                     task.setCompleted(true);
-                    // Награда
                     plugin.getEconomyManager().deposit(player, task.getReward());
                     player.sendMessage("§aЗадание выполнено! Вы получили " + task.getReward() + " монет.");
                 }
@@ -149,7 +137,14 @@ public class TaskManager implements Listener {
         }
     }
 
-    // --- Класс задания ---
+    @EventHandler
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) return;
+        if (event.getView().getTitle().equals("§eЕжедневные задания")) {
+            event.setCancelled(true);
+        }
+    }
+
     public static class Task {
         private final String objective;
         private final int reward;
@@ -169,7 +164,6 @@ public class TaskManager implements Listener {
         public boolean isCompleted() { return completed; }
         public void setCompleted(boolean completed) { this.completed = completed; }
         public int getRequiredAmount() {
-            // Парсим число из строки (упрощённо)
             String[] parts = objective.split(" ");
             for (String part : parts) {
                 try {
