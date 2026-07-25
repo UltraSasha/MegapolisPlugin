@@ -15,6 +15,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.NamespacedKey;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -25,6 +26,7 @@ public class TransformerManager {
     private final MegapolisPlugin plugin;
     private final Map<UUID, Boolean> transformerActive = new HashMap<>();
     private final Map<UUID, UUID> transformedToVehicle = new HashMap<>(); // playerId → vehicleId
+    private final Map<UUID, UUID> vehicleToPlayer = new HashMap<>(); // vehicleId → playerId
 
     public TransformerManager(MegapolisPlugin plugin) {
         this.plugin = plugin;
@@ -50,6 +52,9 @@ public class TransformerManager {
         // 1. Скрываем игрока
         player.setInvisible(true);
         player.setInvulnerable(true);
+        // Отключаем физику игрока (чтобы не падал)
+        player.setAllowFlight(true);
+        player.setFlying(true);
 
         // 2. Создаём лошадь-трансформер
         Horse horse = world.spawn(loc, Horse.class);
@@ -67,24 +72,22 @@ public class TransformerManager {
         armor.setItemMeta(meta);
         horse.getInventory().setArmor(armor);
 
-        // 3. Регистрируем машину в VehicleManager (как обычную, но с типом CAR)
-        // Чтобы ПКМ по ней работал, нужно зарегистрировать её в VehicleManager
-        // Для этого создаём Vehicle и добавляем в Map
+        // 3. Регистрируем машину в VehicleManager
         NamespacedKey key = new NamespacedKey(plugin, "vehicle_id");
         String vehicleIdStr = UUID.randomUUID().toString();
         horse.getPersistentDataContainer().set(key, PersistentDataType.STRING, vehicleIdStr);
 
         UUID vehicleId = UUID.fromString(vehicleIdStr);
-        // Используем тип CAR, так как трансформер — это машина
         Vehicle vehicle = new Vehicle(vehicleId, player.getUniqueId(), VehicleType.CAR, loc, 100, 100);
-        // Добавляем в VehicleManager (через reflection или публичный метод)
+        // Регистрируем через VehicleManager
         plugin.getModuleManager().getVehicleManager().registerVehicle(vehicle, horse);
 
         // 4. Сажаем игрока на лошадь (автоматически)
         horse.addPassenger(player);
 
-        // Сохраняем связь
+        // Сохраняем связи
         transformedToVehicle.put(playerId, vehicleId);
+        vehicleToPlayer.put(vehicleId, playerId);
         transformerActive.put(playerId, true);
 
         // 5. Эффекты
@@ -92,6 +95,23 @@ public class TransformerManager {
         world.playSound(loc, Sound.ENTITY_ENDER_DRAGON_GROWL, 1.0f, 0.5f);
 
         player.sendMessage("§6Вы превратились в машину! Нажмите Shift, чтобы выйти.");
+
+        // Запускаем таймер для обновления позиции игрока (чтобы не отставал от лошади)
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!transformerActive.getOrDefault(playerId, false)) {
+                    this.cancel();
+                    return;
+                }
+                Entity vehicleEntity = Bukkit.getEntity(vehicleId);
+                if (vehicleEntity != null && vehicleEntity.getPassengers().isEmpty()) {
+                    // Если игрок вышел из лошади (через Shift), вызываем выход
+                    onTransformerExit(player);
+                    this.cancel();
+                }
+            }
+        }.runTaskTimer(plugin, 0L, 5L);
     }
 
     private void revertToSkin(Player player) {
@@ -103,14 +123,22 @@ public class TransformerManager {
         Location loc = player.getLocation();
         if (vehicle != null) {
             loc = vehicle.getLocation();
+            // Удаляем пассажиров (игрока)
+            for (Entity passenger : vehicle.getPassengers()) {
+                vehicle.removePassenger(passenger);
+            }
             vehicle.remove();
         }
 
         // Удаляем из VehicleManager
         plugin.getModuleManager().getVehicleManager().unregisterVehicle(vehicleId);
+        vehicleToPlayer.remove(vehicleId);
 
+        // Восстанавливаем игрока
         player.setInvisible(false);
         player.setInvulnerable(false);
+        player.setAllowFlight(false);
+        player.setFlying(false);
 
         // Восстанавливаем скин через SkinRestorer
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), "skin update " + player.getName());
